@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Supply Chain Valuation Map — v5</title>
+<style>
+  body { font-family: Arial, sans-serif; font-size: 12px; color: #1a1a1a; margin: 0; padding: 16px; background: #f8f8f6; }
+  h1 { font-size: 16px; font-weight: bold; color: #1a3a5c; margin: 0 0 2px; }
+  .subtitle { font-size: 11px; color: #666; margin-bottom: 14px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; align-items: center; }
+  .ctrl-label { font-size: 11px; color: #666; margin-right: 2px; }
+  .f-btn { font-size: 11px; padding: 3px 10px; border-radius: 20px; border: 1px solid #ccc; background: #fff; color: #555; cursor: pointer; }
+  .f-btn.on { background: #1a3a5c; color: #fff; border-color: #1a3a5c; }
+  .leg { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; align-items: center; }
+  .ld { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #555; }
+  .lc { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; border: 0.5px solid rgba(0,0,0,0.12); }
+  .sl { font-size: 10px; font-weight: bold; letter-spacing: 0.08em; text-transform: uppercase; color: #888; padding: 10px 0 4px; }
+  .tier { margin-bottom: 8px; border-radius: 8px; border: 1px solid #e0e0e0; background: #fff; overflow: hidden; }
+  .tier.sub { margin-left: 20px; border-style: dashed; }
+  .th { display: flex; align-items: center; gap: 8px; padding: 9px 14px; cursor: pointer; user-select: none; border-bottom: 1px solid #e8e8e8; }
+  .tnum { font-size: 11px; font-weight: bold; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
+  .tname { font-size: 13px; font-weight: bold; color: #1a1a1a; flex: 1; }
+  .tavg { font-size: 11px; color: #888; white-space: nowrap; margin-right: 4px; }
+  .tarr { font-size: 11px; color: #aaa; transition: transform 0.2s; }
+  .tier.open .tarr { transform: rotate(90deg); }
+  .cos-wrap { display: none; }
+  .tier.open .cos-wrap { display: block; }
+  .cos { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px 12px; }
+  .co { display: flex; flex-direction: column; align-items: center; border-radius: 6px; padding: 6px 8px; min-width: 72px; cursor: default; border: 0.5px solid rgba(0,0,0,0.1); position: relative; transition: opacity 0.15s; }
+  .co.dim { opacity: 0.12; }
+  .co.star { border: 2px solid #BA7517 !important; }
+  .co.star::after { content: '★'; position: absolute; top: 2px; right: 4px; font-size: 8px; color: #BA7517; }
+  .co.priv { border-style: dashed; background: #f5f5f3 !important; }
+  .co.iou  { border-style: dotted; background: #f0f0ee !important; }
+  .co.isnew { outline: 2px solid #0F6E56; outline-offset: 1px; }
+  .ct   { font-size: 12px; font-weight: bold; white-space: nowrap; }
+  .cn   { font-size: 10px; white-space: nowrap; margin-top: 1px; opacity: 0.8; text-align: center; max-width: 82px; overflow: hidden; text-overflow: ellipsis; }
+  .cmkt { font-size: 10px; white-space: nowrap; margin-top: 1px; opacity: 0.75; }
+  .cev  { font-size: 11px; font-weight: bold; white-space: nowrap; margin-top: 2px; }
+  .fa { text-align: center; font-size: 13px; color: #bbb; margin: 2px 0; }
+  .nb { margin-top: 14px; padding: 10px 14px; background: #f0f0ee; border-radius: 6px; font-size: 10px; color: #666; line-height: 1.65; }
+  .insight-bar { background: #eef4fb; border-left: 4px solid #1a3a5c; padding: 10px 14px; border-radius: 0 6px 6px 0; margin-bottom: 14px; font-size: 11px; color: #1a3a5c; line-height: 1.6; }
+  .stats-bar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+  .stat { background: #fff; border: 1px solid #e0e0e0; border-radius: 6px; padding: 8px 14px; min-width: 100px; }
+  .stat-label { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.04em; }
+  .stat-val { font-size: 16px; font-weight: bold; color: #1a3a5c; }
+  .tier-insight { font-size: 10px; color: #555; padding: 6px 14px 4px; font-style: italic; border-top: 1px solid #f0f0ee; line-height: 1.5; }
+</style>
+</head>
+<body>
+<h1>AI Supply Chain — Valuation Grid v5</h1>
+<p class="subtitle">FactSet data · Market cap ($M USD) · NTM EV/EBITDA · April 2026 · ★ = pivotal / discussed · Green outline = new v3/v4/v5</p>
+
+<div class="insight-bar">
+  <strong>How to read:</strong> The supply chain flows top to bottom — silicon feedstocks through chips, servers, data centers, power, and the steel poles that hold up the grid. Stars (★) mark companies where research identified a specific investment insight or pivotal underappreciated role. The further down the stack, the less discovered the AI tailwind — and the cheaper the valuation. That gap between discovery and price is the opportunity.
+</div>
+
+<div class="stats-bar" id="stats"></div>
+
+<div class="leg">
+  <div class="ld"><div class="lc" style="background:#C0DD97"></div>&lt;15x cheap</div>
+  <div class="ld"><div class="lc" style="background:#FAC775"></div>15–25x fair</div>
+  <div class="ld"><div class="lc" style="background:#F09595"></div>25–35x rich</div>
+  <div class="ld"><div class="lc" style="background:#E24B4A"></div>&gt;35x expensive</div>
+  <div class="ld"><div class="lc" style="background:#E8E6DF"></div>N/M</div>
+  <div class="ld"><div class="lc" style="background:#f5f5f3;border:1px dashed #bbb"></div>Private</div>
+  <div class="ld"><span style="font-size:14px;color:#BA7517">★</span>&nbsp;Pivotal</div>
+  <div class="ld"><div class="lc" style="background:#fff;border:2px solid #0F6E56"></div>New v3/v4/v5</div>
+</div>
+
+<div class="controls">
+  <span class="ctrl-label">Filter:</span>
+  <button class="f-btn on" onclick="sf('all',this)">All</button>
+  <button class="f-btn" onclick="sf('cheap',this)">&lt;15x</button>
+  <button class="f-btn" onclick="sf('fair',this)">15–25x</button>
+  <button class="f-btn" onclick="sf('rich',this)">25–35x</button>
+  <button class="f-btn" onclick="sf('exp',this)">&gt;35x</button>
+  <button class="f-btn" onclick="sf('star',this)">★ Pivotal</button>
+  <button class="f-btn" onclick="sf('smid',this)">SMID &lt;$10B</button>
+  <button class="f-btn" onclick="sf('new',this)">New v3/v4/v5</button>
+  <button class="f-btn" onclick="toggleAll(true)">Expand all</button>
+  <button class="f-btn" onclick="toggleAll(false)">Collapse all</button>
+</div>
+
+<div id="map"></div>
+
+<div class="nb">
+  <strong>Data: FactSet April 2026</strong> · Mkt cap $M USD · NTM EV/EBITDA consensus · N/M = pre-profit or no consensus · Dashed = private · ESE appears in T2 (ETS-Lindgren EMC), T11 (Doble diagnostics), T15 (A&D/Maritime) — three distinct AI-adjacent businesses · HUBB appears in T8 (DC power) and T11/T12 (grid) · T4 renamed to include Memory · ITRI removed · SK Hynix KRX-listed (reference only) · CCMP & JSRCY taken private · ★ = pivotal / discussed · Green outline = new v3/v4/v5
+</div>
+
+<script>
+const tiers = [
+  // ── T1 RAW MATERIALS ──────────────────────────────────────────────────────
+  {id:'T1', name:'Raw Materials & Specialty Chemicals', tc:'#3B6D11', bg:'#EAF3DE',
+   section:'Silicon stack — upstream',
+   insight:'Feedstocks every chip depends on — silicon wafers, process gases, photoresist, CMP slurries. No substitute exists for any of these at scale.',
+   cos:[
+    {t:'SHECY', n:'Shin-Etsu',       mkt:84226,   ev:null},
+    {t:'SUMCO', n:'SUMCO Corp',       mkt:4900,    ev:9.0,   isnew:true},
+    {t:'ENTG',  n:'Entegris',         mkt:23748,   ev:28.6},
+    {t:'APD',   n:'Air Products',     mkt:67189,   ev:16.0},
+    {t:'LIN',   n:'Linde',            mkt:236470,  ev:18.8},
+    {t:'AIQUY', n:'Air Liquide',      mkt:127731,  ev:13.7},
+    {t:'MKKGY', n:'Merck KGaA',       mkt:16929,   ev:10.2},
+    {t:'ALB',   n:'Albemarle',        mkt:22194,   ev:11.2},
+    {t:'MTLHY', n:'Mitsubishi Chem',  mkt:8236,    ev:null},
+    {t:'CCMP',  n:'CMC Materials',    mkt:null,    ev:null,  priv:true},
+    {t:'JSRCY', n:'JSR Corp',         mkt:null,    ev:null,  priv:true},
+  ]},
+
+  // ── T2 SEMICON EQUIPMENT ──────────────────────────────────────────────────
+  {id:'T2', name:'Semiconductor Manufacturing Equipment & Test', tc:'#3B6D11', bg:'#EAF3DE',
+   insight:'Tools that pattern silicon + EMC test chambers every AI chip must pass through. ACLS dominates SiC ion implant for AI power chips. AEIS powers the tools. ESE/ETS-Lindgren certifies every chip. CAMT and NVMI inspect every advanced packaging step.',
+   cos:[
+    {t:'ASML',  n:'ASML',             mkt:567775,  ev:30.8},
+    {t:'AMAT',  n:'Appl. Matls',      mkt:330967,  ev:32.2},
+    {t:'LRCX',  n:'Lam Research',     mkt:334878,  ev:39.2},
+    {t:'KLAC',  n:'KLA Corp',         mkt:253633,  ev:42.1},
+    {t:'TOELY', n:'Tokyo Electron',   mkt:135572,  ev:24.4},
+    {t:'ACLS',  n:'Axcelis',          mkt:4398,    ev:35.3, star:true},
+    {t:'IPGP',  n:'IPG Photonics',    mkt:5286,    ev:26.8},
+    {t:'ATEYY', n:'Advantest',        mkt:135106,  ev:29.0},
+    {t:'ONTO',  n:'Onto Innovation',  mkt:15314,   ev:33.3},
+    {t:'TER',   n:'Teradyne',         mkt:65453,   ev:49.6},
+    {t:'VECO',  n:'Veeco',            mkt:3124,    ev:25.8},
+    {t:'COHU',  n:'Cohu',             mkt:2205,    ev:33.7},
+    {t:'KEYS',  n:'Keysight',         mkt:59500,   ev:31.3, isnew:true},
+    {t:'AEIS',  n:'Advanced Energy',  mkt:14726,   ev:32.4, isnew:true},
+    {t:'CAMT',  n:'Camtek',           mkt:9303,    ev:60.5, isnew:true},
+    {t:'NVMI',  n:'Nova Ltd.',        mkt:17257,   ev:47.2, isnew:true},
+    {t:'ESE',   n:'ESCO/ETS-Lindgren',mkt:8284,    ev:26.1, star:true, isnew:true},
+  ]},
+
+  // ── T3 CHIP DESIGN ────────────────────────────────────────────────────────
+  {id:'T3', name:'Chip Design, EDA & IP', tc:'#185FA5', bg:'#E6F1FB',
+   insight:'NVIDIA owns AI training. ARM licenses the instruction set on virtually every inference chip. MPWR makes the power management ICs that go directly on NVIDIA GPU boards. ALAB and CRDO are the purest AI connectivity plays in the chip design tier. ADI and TXN add for completeness — broad industrial/analog exposure.',
+   cos:[
+    {t:'NVDA',  n:'NVIDIA',           mkt:5060961, ev:20.8},
+    {t:'AMD',   n:'AMD',              mkt:567048,  ev:48.2},
+    {t:'AVGO',  n:'Broadcom',         mkt:2001628, ev:30.1},
+    {t:'MRVL',  n:'Marvell',          mkt:143682,  ev:33.8},
+    {t:'INTC',  n:'Intel',            mkt:414434,  ev:22.8},
+    {t:'QCOM',  n:'Qualcomm',         mkt:158823,  ev:10.7},
+    {t:'ARM',   n:'ARM Holdings',     mkt:249133,  ev:68.8},
+    {t:'CDNS',  n:'Cadence',          mkt:91908,   ev:32.0},
+    {t:'SNPS',  n:'Synopsys',         mkt:95938,   ev:27.2},
+    {t:'ADI',   n:'Analog Devices',   mkt:195072,  ev:23.6, isnew:true},
+    {t:'TXN',   n:'Texas Instruments',mkt:252326,  ev:24.5, isnew:true},
+    {t:'MPWR',  n:'Monolithic Power', mkt:80164,   ev:64.4, isnew:true, star:true},
+    {t:'NXPI',  n:'NXP Semiconductors',mkt:61667,  ev:13.3, isnew:true},
+    {t:'MCHP',  n:'Microchip Tech',   mkt:48399,   ev:22.1, isnew:true},
+    {t:'ON',    n:'ON Semiconductor', mkt:38703,   ev:21.2, isnew:true},
+    {t:'SMTC',  n:'Semtech',          mkt:10205,   ev:36.3, isnew:true},
+    {t:'CBRS',  n:'Cerebras',         mkt:null,    ev:null, priv:true},
+  ]},
+
+  // ── T4 FOUNDRIES MEMORY PACKAGING ────────────────────────────────────────
+  {id:'T4', name:'Chip Fabrication, Memory & Advanced Packaging', tc:'#185FA5', bg:'#E6F1FB',
+   insight:'TSMC makes ~90% of leading-edge AI chips. Samsung and SK Hynix make the HBM memory stacked on every NVIDIA GPU — HBM is the AI-critical memory. WDC, STX, and SNDK serve AI training data storage. Samsung at 4.1x prices in a deep trough; SK Hynix arguably the most important HBM supplier right now.',
+   cos:[
+    {t:'TSM',      n:'TSMC',            mkt:1800440, ev:14.6},
+    {t:'SSNLF',    n:'Samsung',         mkt:949081,  ev:4.1},
+    {t:'SK Hynix', n:'SK Hynix',        mkt:null,    ev:null},
+    {t:'MU',       n:'Micron',          mkt:560168,  ev:6.7},
+    {t:'WDC',      n:'Western Digital', mkt:136971,  ev:33.1, isnew:true},
+    {t:'SNDK',     n:'SanDisk',         mkt:146110,  ev:18.6, isnew:true},
+    {t:'STX',      n:'Seagate',         mkt:127845,  ev:34.1, isnew:true},
+    {t:'RMBS',     n:'Rambus',          mkt:17132,   ev:40.7, isnew:true},
+    {t:'GFS',      n:'GlobalFoundries', mkt:34381,   ev:14.2},
+    {t:'ASX',      n:'ASE Tech',        mkt:70304,   ev:14.6},
+    {t:'AMKR',     n:'Amkor',           mkt:19354,   ev:14.4},
+    {t:'KLIC',     n:'Kulicke & Soffa', mkt:4590,    ev:25.4},
+  ]},
+
+  // ── T5 SERVERS & NETWORKING ───────────────────────────────────────────────
+  {id:'T5', name:'AI Servers, Networking & Interconnect', tc:'#533AB7', bg:'#EEEDFE',
+   section:'Systems layer',
+   insight:'Hardware turning chips into working AI clusters. ALAB (115% revenue growth, AI connectivity pure-play) and CRDO (active electrical cables for AI racks) are the two most AI-specific additions. Arista dominates networking. Lumentum at 83.6x prices in extraordinary fiber demand. MTSI serves the 800G/1.6T optical buildout.',
+   cos:[
+    {t:'SMCI',  n:'Super Micro',      mkt:17419,   ev:10.8},
+    {t:'DELL',  n:'Dell',             mkt:70371,   ev:11.7},
+    {t:'HPE',   n:'HPE',              mkt:37364,   ev:7.8},
+    {t:'ANET',  n:'Arista',           mkt:222760,  ev:39.6},
+    {t:'CSCO',  n:'Cisco',            mkt:351580,  ev:15.5},
+    {t:'COHR',  n:'Coherent',         mkt:65628,   ev:41.2},
+    {t:'FN',    n:'Fabrinet',         mkt:25802,   ev:44.6},
+    {t:'LITE',  n:'Lumentum',         mkt:62949,   ev:83.6},
+    {t:'CLS',   n:'Celestica',        mkt:47126,   ev:21.8},
+    {t:'APH',   n:'Amphenol',         mkt:184058,  ev:20.5},
+    {t:'TEL',   n:'TE Connectivity',  mkt:62992,   ev:13.0},
+    {t:'HNHPF', n:'Foxconn',          mkt:98558,   ev:7.1},
+    {t:'WCC',   n:'Wesco Intl',       mkt:15410,   ev:12.7},
+    {t:'FERG',  n:'Ferguson',         mkt:51240,   ev:16.9},
+    {t:'ALAB',  n:'Astera Labs',      mkt:36228,   ev:77.3, isnew:true, star:true},
+    {t:'CRDO',  n:'Credo Technology', mkt:35975,   ev:57.1, isnew:true},
+    {t:'MTSI',  n:'MACOM Tech',       mkt:21576,   ev:57.3, isnew:true},
+    {t:'SMTC',  n:'Semtech',          mkt:10205,   ev:36.3, isnew:true},
+  ]},
+
+  // ── T6 HYPERSCALERS ───────────────────────────────────────────────────────
+  {id:'T6', name:'Hyperscalers, Cloud & AI Inference Platforms', tc:'#533AB7', bg:'#EEEDFE',
+   insight:'Collectively spending $650B+ on AI infrastructure in 2026. DOCN is the SMB inference cloud — $120M AI ARR growing fast at 28.3x. The four mega-caps trade 12–19x despite being the ultimate AI demand engines.',
+   cos:[
+    {t:'MSFT',     n:'Microsoft',      mkt:3153071, ev:16.3},
+    {t:'AMZN',     n:'Amazon',         mkt:2839015, ev:14.2},
+    {t:'GOOGL',    n:'Alphabet',       mkt:3866633, ev:18.8},
+    {t:'META',     n:'Meta',           mkt:1482397, ev:12.2},
+    {t:'ORCL',     n:'Oracle',         mkt:498361,  ev:17.1},
+    {t:'CRWV',     n:'CoreWeave',      mkt:46152,   ev:11.0},
+    {t:'DOCN',     n:'DigitalOcean',   mkt:9748,    ev:28.3},
+    {t:'OpenAI',   n:'OpenAI',         mkt:null,    ev:null, priv:true},
+    {t:'Anthropic',n:'Anthropic',      mkt:null,    ev:null, priv:true},
+    {t:'xAI',      n:'xAI',           mkt:null,    ev:null, priv:true},
+    {t:'Lambda',   n:'Lambda Labs',    mkt:null,    ev:null, priv:true},
+  ]},
+
+  // ── T7 DC CONSTRUCTION ────────────────────────────────────────────────────
+  {id:'T7', name:'Data Center Real Estate & Construction', tc:'#854F0B', bg:'#FAEEDA',
+   section:'Data center physical infrastructure',
+   insight:'REITs own the space; contractors build it. Comfort Systems (FIX) installs MEP inside every data center — $11.9B backlog locks in the AI capex cycle 18–24 months forward.',
+   cos:[
+    {t:'EQIX',  n:'Equinix',          mkt:109350,  ev:24.7},
+    {t:'DLR',   n:'Digital Realty',   mkt:68723,   ev:24.6},
+    {t:'IRM',   n:'Iron Mountain',    mkt:34516,   ev:18.7},
+    {t:'FIX',   n:'Comfort Systems',  mkt:60764,   ev:30.5, star:true},
+    {t:'EME',   n:'EMCOR',            mkt:38739,   ev:20.4},
+    {t:'PWR',   n:'Quanta',           mkt:93488,   ev:29.5},
+    {t:'MYRG',  n:'MYR Group',        mkt:5272,    ev:19.0},
+    {t:'ACM',   n:'AECOM',            mkt:10391,   ev:10.0},
+    {t:'SKBSY', n:'Skanska',          mkt:10854,   ev:null},
+    {t:'BLD',   n:'TopBuild',         mkt:12714,   ev:14.8},
+    {t:'Turner',n:'Turner Constr.',   mkt:null,    ev:null, priv:true},
+  ]},
+
+  // ── T8 COOLING & POWER ────────────────────────────────────────────────────
+  {id:'T8', name:'Data Center Cooling & Power Distribution', tc:'#854F0B', bg:'#FAEEDA',
+   insight:'Keeping AI chips cool is the defining engineering challenge. Vertiv is the dominant pure-play at 37.5x. Hubbell (★) serves both chip cooling PDUs and the grid — a rare dual-tier player.',
+   cos:[
+    {t:'VRT',    n:'Vertiv',          mkt:124244,  ev:37.5},
+    {t:'ETN',    n:'Eaton',           mkt:164475,  ev:23.4},
+    {t:'SBGSY',  n:'Schneider Elec',  mkt:186460,  ev:18.8},
+    {t:'HUBB',   n:'Hubbell',         mkt:29326,   ev:20.0, star:true},
+    {t:'MOD',    n:'Modine',          mkt:13272,   ev:25.8},
+    {t:'NVT',    n:'nVent',           mkt:22989,   ev:23.4},
+    {t:'EMR',    n:'Emerson',         mkt:79481,   ev:17.0},
+    {t:'TT',     n:'Trane Tech',      mkt:107660,  ev:23.9},
+    {t:'CoolIT', n:'CoolIT',          mkt:null,    ev:null, priv:true},
+    {t:'Submer', n:'Submer',          mkt:null,    ev:null, priv:true},
+    {t:'LiqStk', n:'LiquidStack',     mkt:null,    ev:null, priv:true},
+  ]},
+
+  // ── T9 ON-SITE POWER ──────────────────────────────────────────────────────
+  {id:'T9', name:'On-Site Power & Backup Generation', tc:'#0F6E56', bg:'#E1F5EE',
+   section:'Power delivery to data center',
+   insight:'Data centers cannot rely solely on the grid. Bloom Energy fuel cells (106.7x — priced as hypergrowth), Caterpillar generators, and emerging SMRs provide firm on-site power.',
+   cos:[
+    {t:'BE',    n:'Bloom Energy',     mkt:65285,   ev:106.7},
+    {t:'CAT',   n:'Caterpillar',      mkt:386556,  ev:27.3},
+    {t:'CMI',   n:'Cummins',          mkt:91293,   ev:15.3},
+    {t:'GNRC',  n:'Generac',          mkt:12963,   ev:15.8},
+    {t:'SMR',   n:'NuScale',          mkt:3872,    ev:null},
+    {t:'OKLO',  n:'Oklo',             mkt:12323,   ev:null},
+    {t:'PLUG',  n:'Plug Power',       mkt:4377,    ev:null},
+    {t:'ENS',   n:'EnerSys',          mkt:7713,    ev:12.1},
+    {t:'FLNC',  n:'Fluence',          mkt:1772,    ev:36.1},
+    {t:'Kairos',n:'Kairos Power',     mkt:null,    ev:null, priv:true},
+  ]},
+
+  // ── T10a DISPATCHABLE POWER ───────────────────────────────────────────────
+  {id:'T10a', name:'Grid-Scale Dispatchable Power — Nuclear & Gas', tc:'#993C1D', bg:'#FAECE7',
+   section:'Grid infrastructure buildout',
+   insight:'DISPATCHABLE — firm always-on power. Nuclear and gas are the only technologies providing reliable power for AI data centers at scale. Gas turbine backlogs now 4–5 years. GEV at 50.4x reflects acute supply scarcity.',
+   cos:[
+    {t:'CEG',   n:'Constellation',    mkt:113590,  ev:12.0},
+    {t:'VST',   n:'Vistra',           mkt:55641,   ev:10.7},
+    {t:'TLN',   n:'Talen Energy',     mkt:16538,   ev:10.9},
+    {t:'GEV',   n:'GE Vernova',       mkt:308810,  ev:50.4, star:true},
+    {t:'SMNEY', n:'Siemens Energy',   mkt:189123,  ev:24.2, star:true},
+  ]},
+
+  // ── T10b GAS TURBINE COMPONENTS ───────────────────────────────────────────
+  {id:'T10b', name:'Gas Turbine Components — Hot Section Bottleneck', tc:'#7a2e14', bg:'#FDF0EC', sub:true,
+   insight:'BOTTLENECK — single-crystal nickel blades above the melting point of steel. Only Howmet and Precision Castparts make them at scale. Bodycote heat-treats every component at just 7.2x — the AZZ of the turbine world.',
+   cos:[
+    {t:'HWM',  n:'Howmet Aerospace',  mkt:97149,   ev:35.2, star:true, isnew:true},
+    {t:'BOY',  n:'Bodycote',          mkt:1614,    ev:7.2,  star:true, isnew:true},
+    {t:'WWD',  n:'Woodward',          mkt:21757,   ev:26.9, isnew:true},
+    {t:'PCC',  n:'Precision Cast.',   mkt:null,    ev:null, priv:true},
+  ]},
+
+  // ── T10c GAS DELIVERY ─────────────────────────────────────────────────────
+  {id:'T10c', name:'Natural Gas Delivery — Fuel to the Turbines', tc:'#7a2e14', bg:'#FDF0EC', sub:true,
+   insight:'ESSENTIAL ENABLER — gas turbines need gas. Pipeline capacity and compression to new power sites is the binding constraint on running new turbines. AROC is the SMID name at 10x.',
+   cos:[
+    {t:'KMI',  n:'Kinder Morgan',     mkt:70616,   ev:11.8, isnew:true},
+    {t:'WMB',  n:'Williams Cos.',     mkt:88266,   ev:14.4, isnew:true},
+    {t:'AROC', n:'Archrock',          mkt:6542,    ev:10.0, star:true, isnew:true},
+  ]},
+
+  // ── T10d RENEWABLES ───────────────────────────────────────────────────────
+  {id:'T10d', name:'Grid-Scale Renewables — Intermittent', tc:'#8B6914', bg:'#FDF8EC',
+   insight:'INTERMITTENT — generates when weather allows. Hyperscalers use renewable PPAs for carbon commitments but need firm dispatchable power for reliability. FSLR at 7.2x prices in significant policy risk.',
+   cos:[
+    {t:'NEE',  n:'NextEra Energy',    mkt:198691,  ev:16.5},
+    {t:'AES',  n:'AES Corp',          mkt:10332,   ev:15.2},
+    {t:'BEP',  n:'Brookfield Ren.',   mkt:10441,   ev:25.1},
+    {t:'FSLR', n:'First Solar',       mkt:20820,   ev:7.2},
+    {t:'SHLS', n:'Shoals Tech',       mkt:1330,    ev:12.9},
+    {t:'IOUs', n:'US Utilities',      mkt:null,    ev:null, iou:true},
+  ]},
+
+  // ── T11 TRANSMISSION ──────────────────────────────────────────────────────
+  {id:'T11', name:'Transmission & Substation Equipment', tc:'#993C1D', bg:'#FAECE7',
+   insight:'TRANSFORMER CRISIS — large power transformers now 3–5 year lead times; US imports 80%. SPXC and POWL are SMID names in the bottleneck. ESE/Doble tests every transformer before it goes live. CLF makes the grain-oriented electrical steel every transformer core requires.',
+   cos:[
+    {t:'HUBB',  n:'Hubbell',          mkt:29326,   ev:20.0, star:true},
+    {t:'ETN',   n:'Eaton',            mkt:164475,  ev:23.4},
+    {t:'ABB',   n:'ABB',              mkt:180646,  ev:22.3},
+    {t:'SIEGY', n:'Siemens',          mkt:222536,  ev:15.9},
+    {t:'HTHIY', n:'Hitachi Energy',   mkt:148688,  ev:12.2},
+    {t:'SPXC',  n:'SPX Tech',         mkt:11180,   ev:18.1, star:true},
+    {t:'ESE',   n:'ESCO / Doble',     mkt:8284,    ev:26.1, star:true},
+    {t:'POWL',  n:'Powell Ind.',      mkt:9207,    ev:34.5, star:true},
+    {t:'ROP',   n:'Roper Tech',       mkt:36179,   ev:14.0},
+    {t:'CLF',   n:'Cleveland-Cliffs', mkt:5567,    ev:10.7, star:true, isnew:true},
+    {t:'WTS',   n:'Watts Water',      mkt:8273,    ev:16.7, isnew:true},
+  ]},
+
+  // ── T12 LINE HARDWARE ─────────────────────────────────────────────────────
+  {id:'T12', name:'Transmission Line Hardware, Conductors & HVDC', tc:'#993C1D', bg:'#FAECE7',
+   insight:'PLPC — armor rods on every transmission line, 75-year utility spec lock-in, no substitutes. NKT, Prysmian and Nexans make HVDC cable — 5–7 year backlogs. Every grid dollar flows through this tier.',
+   cos:[
+    {t:'PLPC',   n:'PLPC',            mkt:1720,    ev:18.7, star:true},
+    {t:'HUBB',   n:'Hubbell Power',   mkt:29326,   ev:20.0},
+    {t:'TEL',    n:'TE Connectivity', mkt:62992,   ev:13.0},
+    {t:'PRYMF',  n:'Prysmian',        mkt:44204,   ev:14.6},
+    {t:'NEXNY',  n:'Nexans',          mkt:7041,    ev:null},
+    {t:'NKT',    n:'NKT A/S',         mkt:7595,    ev:14.3, star:true, isnew:true},
+    {t:'Sthwre', n:'Southwire',       mkt:null,    ev:null, priv:true},
+    {t:'Burndy', n:'Burndy',          mkt:null,    ev:null, priv:true},
+  ]},
+
+  // ── T13 POLES & TOWERS ────────────────────────────────────────────────────
+  {id:'T13', name:'Poles, Towers & Structural Steel Fabrication', tc:'#444441', bg:'#F1EFE8',
+   section:'Steel & structural — furthest removed, earliest in the cycle',
+   insight:'Every transmission tower is fabricated steel. Valmont and Arcosa make the poles — a multi-year supercycle the market is only beginning to price in. Steel names at 9–10x price in zero AI benefit.',
+   cos:[
+    {t:'VMI',  n:'Valmont',           mkt:9752,    ev:14.1, star:true},
+    {t:'ACA',  n:'Arcosa',            mkt:5864,    ev:12.4, star:true},
+    {t:'TRN',  n:'Trinity Ind.',      mkt:2529,    ev:10.0},
+    {t:'NUE',  n:'Nucor',             mkt:48810,   ev:9.5},
+    {t:'STLD', n:'Steel Dynamics',    mkt:32822,   ev:10.4},
+    {t:'Sabre',n:'Sabre Ind.',        mkt:null,    ev:null, priv:true},
+  ]},
+
+  // ── T14 GALVANIZING ───────────────────────────────────────────────────────
+  {id:'T14', name:'Steel Corrosion Protection — Hot-Dip Galvanizing', tc:'#444441', bg:'#F1EFE8',
+   insight:'AZZ is the last stop before steel goes in the ground. Every tower and data center structural element must be galvanized. 42 plants — a geographic moat impossible to replicate. Management explicitly cited data center construction as a growth driver in Q1 FY2027.',
+   cos:[
+    {t:'AZZ',  n:'AZZ Inc.',          mkt:4283,    ev:12.5, star:true},
+    {t:'VMI',  n:'Valmont (gal.)',    mkt:9752,    ev:14.1},
+  ]},
+
+  // ── T15 DEFENSE ───────────────────────────────────────────────────────────
+  {id:'T15', name:'Defense & Adjacent Industrial — AI-Driven Geopolitical Demand', tc:'#444441', bg:'#F1EFE8',
+   insight:'AI reshaping geopolitics accelerates defense spending. GHM is sole-source on Virginia and Columbia Class submarines. ESE/Doble tests every transformer before it goes live and certifies every AI chip through ETS-Lindgren — three distinct AI-adjacent businesses in one ticker.',
+   cos:[
+    {t:'GHM',  n:'Graham Corp.',      mkt:1078,    ev:33.7, star:true},
+    {t:'ESE',  n:'ESCO Tech',         mkt:8284,    ev:26.1, star:true},
+    {t:'ATMU', n:'Atmus',             mkt:5083,    ev:13.7, star:true},
+    {t:'IPGP', n:'IPG Photonics',     mkt:5286,    ev:26.8},
+    {t:'BWXT', n:'BWX Tech',          mkt:20443,   ev:33.6},
+    {t:'HII',  n:'HII',              mkt:14148,   ev:15.8},
+    {t:'GD',   n:'Gen. Dynamics',     mkt:84832,   ev:13.9},
+    {t:'CW',   n:'Curtiss-Wright',    mkt:26482,   ev:33.2},
+    {t:'TDG',  n:'TransDigm',         mkt:64842,   ev:17.9},
+    {t:'HEI',  n:'Heico',             mkt:31760,   ev:29.3},
+  ]},
+];
+
+// ── HELPERS ───────────────────────────────────────────────────────────────
+function evColor(ev,priv,iou){
+  if(priv) return{bg:'#f5f5f3',text:'#999'};
+  if(iou)  return{bg:'#f0f0ee',text:'#999'};
+  if(ev===null) return{bg:'#E8E6DF',text:'#5F5E5A'};
+  if(ev<15)  return{bg:'#C0DD97',text:'#27500A'};
+  if(ev<25)  return{bg:'#FAC775',text:'#633806'};
+  if(ev<35)  return{bg:'#F09595',text:'#791F1F'};
+  return{bg:'#E24B4A',text:'#fff'};
+}
+function fmtMkt(m){if(!m)return'—';if(m>=1000000)return'$'+(m/1000000).toFixed(1)+'T';if(m>=1000)return'$'+Math.round(m/1000)+'B';return'$'+m+'M';}
+function fmtEv(ev,p,i){if(p||i)return'—';if(ev===null)return'N/M';return ev.toFixed(1)+'x';}
+function tierAvg(cos){
+  const v=cos.filter(c=>c.ev!==null&&!c.priv&&!c.iou&&c.mkt).map(c=>c.ev);
+  if(!v.length)return null;
+  return(v.reduce((a,b)=>a+b,0)/v.length).toFixed(1);
+}
+
+// ── STATS ─────────────────────────────────────────────────────────────────
+function buildStats(){
+  const seen=new Set();const all=[];
+  tiers.forEach(t=>t.cos.forEach(c=>{
+    if(!seen.has(c.t)&&!c.priv&&!c.iou){seen.add(c.t);all.push(c);}
+  }));
+  const withEv=all.filter(c=>c.ev!==null&&c.mkt);
+  const totalMkt=all.filter(c=>c.mkt).reduce((a,c)=>a+c.mkt,0);
+  const avgEv=(withEv.reduce((a,c)=>a+c.ev,0)/withEv.length).toFixed(1);
+  const cheap=withEv.filter(c=>c.ev<15).length;
+  const exp=withEv.filter(c=>c.ev>=35).length;
+  const smid=all.filter(c=>c.mkt&&c.mkt<10000).length;
+  const stars=all.filter(c=>c.star).length;
+  document.getElementById('stats').innerHTML=`
+    <div class="stat"><div class="stat-label">Public cos mapped</div><div class="stat-val">${all.length}</div></div>
+    <div class="stat"><div class="stat-label">Combined mkt cap</div><div class="stat-val">$${(totalMkt/1000000).toFixed(0)}T+</div></div>
+    <div class="stat"><div class="stat-label">Universe avg EV/EBITDA</div><div class="stat-val">${avgEv}x</div></div>
+    <div class="stat"><div class="stat-label">&lt;15x (cheap)</div><div class="stat-val">${cheap} cos</div></div>
+    <div class="stat"><div class="stat-label">&gt;35x (expensive)</div><div class="stat-val">${exp} cos</div></div>
+    <div class="stat"><div class="stat-label">SMID &lt;$10B</div><div class="stat-val">${smid} cos</div></div>
+    <div class="stat"><div class="stat-label">★ Pivotal names</div><div class="stat-val">${stars}</div></div>`;
+}
+
+// ── FILTER ────────────────────────────────────────────────────────────────
+function sf(f,btn){
+  document.querySelectorAll('.f-btn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  document.querySelectorAll('.co').forEach(el=>{
+    const ev=el.dataset.ev==='null'?null:parseFloat(el.dataset.ev);
+    const mkt=parseFloat(el.dataset.mkt)||0;
+    let show=true;
+    if(f==='cheap') show=ev!==null&&ev<15;
+    else if(f==='fair')  show=ev!==null&&ev>=15&&ev<25;
+    else if(f==='rich')  show=ev!==null&&ev>=25&&ev<35;
+    else if(f==='exp')   show=ev!==null&&ev>=35;
+    else if(f==='star')  show=el.dataset.star==='1';
+    else if(f==='smid')  show=mkt>0&&mkt<10000;
+    else if(f==='new')   show=el.dataset.isnew==='1';
+    el.classList.toggle('dim',!show);
+  });
+}
+function toggleAll(open){
+  document.querySelectorAll('.tier').forEach(t=>{
+    if(open)t.classList.add('open');else t.classList.remove('open');
+  });
+}
+
+// ── BUILD MAP ─────────────────────────────────────────────────────────────
+function buildMap(){
+  const map=document.getElementById('map');let html='';let lastSection='';
+  tiers.forEach((tier,ti)=>{
+    if(tier.section&&tier.section!==lastSection){
+      if(ti>0)html+=`<div class="fa">↓</div>`;
+      html+=`<div class="sl">${tier.section}</div>`;
+      lastSection=tier.section;
+    } else if(ti>0&&!tier.sub){
+      html+=`<div class="fa">↓</div>`;
+    }
+    const avg=tierAvg(tier.cos);
+    html+=`<div class="tier open${tier.sub?' sub':''}">
+      <div class="th" onclick="this.closest('.tier').classList.toggle('open')">
+        <span class="tnum" style="background:${tier.bg};color:${tier.tc}">${tier.id}</span>
+        <span class="tname">${tier.name}</span>
+        <span class="tavg">${avg?'avg: '+avg+'x':''}</span>
+        <span class="tarr">▶</span>
+      </div>
+      <div class="cos-wrap">
+        ${tier.insight?`<div class="tier-insight">${tier.insight}</div>`:''}
+        <div class="cos">`;
+    tier.cos.forEach(co=>{
+      const isPriv=!!co.priv,isIou=!!co.iou,isNew=!!co.isnew;
+      const c=evColor(co.ev,isPriv,isIou);
+      html+=`<div class="co${co.star?' star':''}${isPriv?' priv':''}${isIou?' iou':''}${isNew?' isnew':''}"
+        data-ev="${co.ev===null?'null':co.ev}" data-star="${co.star?1:0}"
+        data-mkt="${co.mkt||0}" data-priv="${isPriv?1:0}" data-iou="${isIou?1:0}" data-isnew="${isNew?1:0}"
+        style="background:${c.bg};${co.star?'border:2px solid #BA7517;':''}${isNew?'outline:2px solid #0F6E56;outline-offset:1px;':''}">
+        <span class="ct" style="color:${c.text}">${co.t}</span>
+        <span class="cn" style="color:${c.text}">${co.n}</span>
+        <span class="cmkt" style="color:${c.text}">${(isPriv||isIou)?'':fmtMkt(co.mkt)}</span>
+        <span class="cev" style="color:${c.text}">${fmtEv(co.ev,isPriv,isIou)}</span>
+      </div>`;
+    });
+    html+=`</div></div></div>`;
+  });
+  map.innerHTML=html;
+}
+
+buildMap();
+buildStats();
+</script>
+</body>
+</html>

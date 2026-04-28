@@ -13,16 +13,20 @@ import pandas as pd
 import openpyxl
 from pathlib import Path
 
-# Resolve backend repo: STONEHOUSE_BACKEND env var, then sibling-folder fallback
+# Excel input — prefer v4_2 (with Efficiency Overlay sheet) in this repo;
+# fall back to the legacy file in stonelodge-backend if v4_2 not present.
+_REPO_ROOT = Path(__file__).parent
 _BACKEND_ROOT = Path(
     os.environ.get("STONEHOUSE_BACKEND", "")
-    or Path(__file__).parent.parent / "stonelodge-backend"
+    or _REPO_ROOT.parent / "stonelodge-backend"
 )
-EXCEL_PATH = (
+_LEGACY_EXCEL = (
     _BACKEND_ROOT
     / "data/research/Technology and AI Analyst"
     / "AI Edge and Robotics/Token and Data Build Out.xlsx"
 )
+_V4_EXCEL = _REPO_ROOT / "Token_and_Data_Build_Out_v4_2.xlsx"
+EXCEL_PATH = _V4_EXCEL if _V4_EXCEL.exists() else _LEGACY_EXCEL
 
 YEARS = list(range(2025, 2043))
 
@@ -40,135 +44,184 @@ LAYERS = {
     # ── Power / Energy ────────────────────────────────────────────────────────
     "Power Generation": {
         "unit": "GW", "color": "#e74c3c",
-        "names": ["GEV", "CEG (nuclear)", "AES", "NRG"],
-        "lead_time_yrs": 8.0, "supply_growth_pct": 0.07,
+        "names": ["GEV", "CEG", "VST", "TLN", "SE", "MHI 7011.T", "Hitachi 6501.T", "NRG", "AES", "DUK", "SO"],
+        "lead_time_yrs": 8.0, "supply_growth_pct": 0.04,
         "demand_driver": "compute", "demand_scale": 1.0,
-        "description": "Utility-scale power for AI data centers",
+        "description": "Utility-scale power for AI data centers. Supply growth 4% per industrials desk (was 7%) — GEV +59% orders are demand, not supply",
     },
-    "Transformers / Switchgear": {
+    "Grid Interconnect Queue": {
+        "unit": "GW queued", "color": "#7d3c98",
+        "names": ["GEV", "SE", "Hitachi 6501.T", "PWR", "MYRG", "CEG", "TLN", "AEP", "EXC", "DUK", "VST", "ABB"],
+        "lead_time_yrs": 6.0, "supply_growth_pct": 0.05,
+        "demand_driver": "capex", "demand_scale": 1.3,
+        "description": "PJM 8+ year queue, ERCOT 2,000+ requests. Distinct from generation — having a turbine ≠ being able to plug in. Behind-the-meter nuclear (CEG/TLN) is the partial bypass",
+    },
+    "GOES (Electrical Steel)": {
+        "unit": "kt", "color": "#641e16",
+        "names": ["CLF", "POSCO 005490.KS", "JFE 5411.T", "Nippon Steel 5401.T", "Stalprodukt", "ThyssenKrupp", "Baoshan"],
+        "lead_time_yrs": 4.0, "supply_growth_pct": 0.03,
+        "demand_driver": "compute", "demand_scale": 0.6,
+        "description": "Grain-oriented electrical steel — single US producer (CLF Butler PA, Zanesville OH). Physics-limited expansion. Upstream of every transformer. Mispriced as commodity steel",
+    },
+    "Large Power Transformers (LPT)": {
         "unit": "GW-equiv", "color": "#c0392b",
-        "names": ["NVT", "HUBB", "ETN", "ABB"],
-        "lead_time_yrs": 2.5, "supply_growth_pct": 0.15,
-        "demand_driver": "compute", "demand_scale": 1.0,
-        "description": "Grid-to-datacenter step-down transformers",
+        "names": ["Hitachi 6501.T", "GEV (Prolec)", "SE", "HUBB", "ABB", "SPX Tech", "WEG", "POWL"],
+        "lead_time_yrs": 3.5, "supply_growth_pct": 0.08,
+        "demand_driver": "compute", "demand_scale": 0.7,
+        "description": "Large power transformers + GSUs. Lead times 100-210 weeks (worsened from 128). Hitachi VA online 2028, SE Charlotte 2027. WoodMac deficit 30%→5% by 2030",
+    },
+    "Distribution Transformers": {
+        "unit": "GW-equiv", "color": "#922b21",
+        "names": ["ETN", "NVT", "HUBB", "ABB", "Schneider", "Legrand", "POWL", "ATKR"],
+        "lead_time_yrs": 1.0, "supply_growth_pct": 0.18,
+        "demand_driver": "compute", "demand_scale": 0.4,
+        "description": "Distribution-class transformers. Capacity catching up; supply expansion ~10-14%/yr per industrials channel checks",
     },
     "UPS / Backup Power": {
         "unit": "GW-equiv", "color": "#e67e22",
-        "names": ["ETN", "Schneider", "GNRC", "CMI"],
-        "lead_time_yrs": 1.0, "supply_growth_pct": 0.22,
+        "names": ["ETN", "VRT", "Schneider", "GNRC", "CMI", "CAT", "Kohler", "Delta 2308.TT"],
+        "lead_time_yrs": 1.0, "supply_growth_pct": 0.20,
         "demand_driver": "compute", "demand_scale": 0.9,
-        "description": "Uninterruptible power + emergency backup generation",
+        "description": "Uninterruptible power + emergency backup generation. Some 48V direct-DC architecture cannibalization",
     },
     "Liquid Cooling": {
         "unit": "GW-thermal", "color": "#d35400",
-        "names": ["VRT", "Nidec", "Modine (MOD)"],
-        "lead_time_yrs": 0.75, "supply_growth_pct": 0.45,
+        "names": ["VRT", "MOD", "Nidec 6594.T", "Boyd (ETN)", "Munters", "SPX Tech", "Asetek", "EMR", "JCI", "TT"],
+        "lead_time_yrs": 0.75, "supply_growth_pct": 0.55,
         "demand_driver": "compute", "demand_scale": 0.8,
-        "description": "Mandatory above 35 kW/rack; GPU clusters require liquid cooling",
+        "description": "Mandatory above 35 kW/rack; B200/GB200 builds 100% liquid by physics. Supply growth raised to 55% (VRT 2025 actuals +60% YoY in liquid)",
+    },
+    "Skilled Electrical Labor": {
+        "unit": "M FTE", "color": "#5d4037",
+        "names": ["MYRG", "PWR", "EME", "FIX", "IESC", "APG", "MTZ", "DY", "PRIM"],
+        "lead_time_yrs": 4.5, "supply_growth_pct": 0.04,
+        "demand_driver": "capex", "demand_scale": 1.1,
+        "description": "MSFT President called it #1 problem March 2026; 4-5yr apprenticeship; no capex fix. Likely the LAST binding constraint to clear",
     },
 
     # ── Silicon / Compute ─────────────────────────────────────────────────────
     "GPU / AI Accelerators": {
         "unit": "EFLOP/s", "color": "#8e44ad",
-        "names": ["NVDA", "AMD", "GOOG (TPU)", "AMZN (Trainium)"],
-        "lead_time_yrs": 1.25, "supply_growth_pct": 0.55,
+        "names": ["NVDA", "AVGO (XPU)", "GOOG (TPU)", "AMZN (Trainium)", "AMD", "MRVL", "ALAB", "Cerebras"],
+        "lead_time_yrs": 1.25, "supply_growth_pct": 0.45,
         "demand_driver": "inference", "demand_scale": 1.0,
-        "description": "Primary AI compute; NVDA dominant; custom ASICs growing",
+        "description": "Primary AI compute. NVDA dominant; custom ASICs (AVGO TPU/Anthropic, AMZN Trainium 3) gaining share. Supply growth normalizing to 45% (was 55%)",
     },
     "HBM Memory": {
         "unit": "TB total", "color": "#9b59b6",
-        "names": ["MU", "SK Hynix", "Samsung"],
-        "lead_time_yrs": 1.75, "supply_growth_pct": 0.38,
+        "names": ["SK Hynix 000660.KS", "MU", "Samsung 005930.KS", "Lasertec 6920.T", "Disco 6146.T", "TEL 8035.T", "Han Mi Semi"],
+        "lead_time_yrs": 1.75, "supply_growth_pct": 0.32,
         "demand_driver": "compute", "demand_scale": 1.0,
-        "description": "High Bandwidth Memory stacked on GPU packages; next binding constraint after CoWoS",
+        "description": "GS Feb 2026: industry undersupply 5.1%/4.0% in 2026/27, TAM $54B/$75B, ASIC HBM share 33-36%. Real bit-supply growth 30-35%",
     },
     "CoWoS / Advanced Packaging": {
         "unit": "kwspm", "color": "#1abc9c",
-        "names": ["TSM", "ASE", "Amkor"],
+        "names": ["TSM", "ASE 3711.TT", "AMKR", "INTC IFS", "BESI", "ONTO", "Disco 6146.T", "TEL 8035.T"],
         "lead_time_yrs": 1.5, "supply_growth_pct": 0.32,
         "demand_driver": "capex", "demand_scale": 1.2,
-        "description": "TSMC CoWoS bonds GPU die + HBM stacks; easing 2H26 but HBM4 re-tightens",
+        "description": "TSMC CoWoS-L: 80→130k WPM end-26 (+62%). Easing 2H26 then HBM4 retightens 2027. BESI hybrid bonding tools = structural winner",
     },
     "Fab Equipment": {
         "unit": "WFE $B", "color": "#2980b9",
-        "names": ["AMAT", "LRCX", "KLAC", "ASML"],
-        "lead_time_yrs": 1.5, "supply_growth_pct": 0.20,
+        "names": ["AMAT", "LRCX", "KLAC", "ASML", "TEL 8035.T", "TER", "ENTG", "MKSI", "AEHR", "Lasertec"],
+        "lead_time_yrs": 1.5, "supply_growth_pct": 0.11,
         "demand_driver": "capex", "demand_scale": 1.5,
-        "description": "Wafer fab equipment; driven by new semiconductor capacity additions, not running load",
+        "description": "GS WFE: $98B 2024 → $109B 2026 = ~11% over 2yr. Supply growth recalibrated DOWN from 20% — fab equip is CapEx-driven, not unit-driven",
     },
     "EDA Tools / IP": {
         "unit": "design starts", "color": "#16a085",
-        "names": ["SNPS", "CDNS", "SIEMENS EDA"],
-        "lead_time_yrs": 0.5, "supply_growth_pct": 0.18,
+        "names": ["SNPS", "CDNS", "ARM", "Siemens EDA", "ALAB", "Rambus RMBS", "CEVA"],
+        "lead_time_yrs": 0.5, "supply_growth_pct": 0.14,
         "demand_driver": "capex", "demand_scale": 0.6,
-        "description": "Design software for every custom ASIC/GPU; EDA duopoly; grows with custom silicon wave",
+        "description": "Custom-silicon wave (AVGO $21B Anthropic, TPU v7, Trainium 3, OpenAI 2027) drives design starts. Duopoly with pricing power. Demand 20%+ vs supply 14%",
     },
     "CPU / Host Processors": {
         "unit": "M units", "color": "#27ae60",
-        "names": ["INTC", "AMD (EPYC)", "ARM licensees"],
-        "lead_time_yrs": 1.0, "supply_growth_pct": 0.28,
+        "names": ["AMD (EPYC)", "INTC", "ARM", "AMZN (Graviton)", "MSFT (Cobalt)", "GOOG (Axion)", "Ampere", "AAPL (M-series)"],
+        "lead_time_yrs": 1.0, "supply_growth_pct": 0.22,
         "demand_driver": "server", "demand_scale": 1.0,
-        "description": "Every GPU server needs host CPUs; Intel losing share but still dominant",
+        "description": "x86 server +1% units 2025; ARM +600bps share to 7%; AMD +200bps/yr; INTC -500bps over 2025-26",
     },
     "Server DRAM": {
         "unit": "TB total", "color": "#2ecc71",
-        "names": ["MU", "Samsung", "SK Hynix"],
-        "lead_time_yrs": 1.25, "supply_growth_pct": 0.30,
+        "names": ["SK Hynix 000660.KS", "MU", "Samsung 005930.KS", "Nanya 2408.TT", "Winbond 2344.TT"],
+        "lead_time_yrs": 1.25, "supply_growth_pct": 0.25,
         "demand_driver": "server", "demand_scale": 1.0,
-        "description": "DDR5 for AI server hosts; 512 GB–2 TB per server; distinct from HBM",
+        "description": "GS Feb 2026: server DRAM (ex-HBM) +39%/+22% 2026/27 demand vs 22-25% supply. Customers asking for 2028 allocation — multi-year shortage",
     },
     "Advanced Substrates / PCB": {
         "unit": "M units", "color": "#f1c40f",
-        "names": ["TTM", "IBIDEN", "Unimicron"],
-        "lead_time_yrs": 1.0, "supply_growth_pct": 0.25,
+        "names": ["IBIDEN 4062.T", "Unimicron 3037.TT", "TTM", "AT&S", "Shinko 6967.T", "SEMCO 009150.KS"],
+        "lead_time_yrs": 1.0, "supply_growth_pct": 0.20,
         "demand_driver": "capex", "demand_scale": 0.8,
-        "description": "High-layer-count substrates for GPU and HBM packages",
+        "description": "AI substrate suppliers at 95%+ utilization. ABF supply broken out as separate sole-source layer (Ajinomoto monopoly)",
+    },
+    "ABF Dielectric Film": {
+        "unit": "M wafers", "color": "#a04000",
+        "names": ["Ajinomoto 2802.T", "Sekisui Chemical 4204.T", "Mitsui Chemicals 4183.T"],
+        "lead_time_yrs": 4.0, "supply_growth_pct": 0.06,
+        "demand_driver": "capex", "demand_scale": 0.4,
+        "description": "Sole-source by Ajinomoto (ABF). Every advanced AI/CPU substrate uses ABF film. Fukushima capacity hits HBM4/CoWoS-L peak demand 2026-27. Trades as food/staples — true monopoly mispriced",
+    },
+    "HBM Hybrid Bonding": {
+        "unit": "tools/yr", "color": "#76448a",
+        "names": ["BESI", "ASMPT 0522.HK", "Han Mi Semi 042700.KS", "AMAT", "TEL 8035.T"],
+        "lead_time_yrs": 2.0, "supply_growth_pct": 0.18,
+        "demand_driver": "compute", "demand_scale": 1.0,
+        "description": "HBM3e uses TC bonders (Han Mi/ASMPT). HBM4 ramping 2H26-1H27 transitions bottom 4 dies to hybrid bonding (BESI/AMAT/TEL) — 4x equipment intensity per die. Step change not captured in HBM bit-supply metric",
+    },
+    "EUV Mask Inspection / Pellicles": {
+        "unit": "tools/yr", "color": "#1f618d",
+        "names": ["Lasertec 6920.T", "Mitsui Chemicals 4183.T", "ASML"],
+        "lead_time_yrs": 3.0, "supply_growth_pct": 0.10,
+        "demand_driver": "capex", "demand_scale": 0.3,
+        "description": "Lasertec actinic EUV mask inspection monopoly. A16 has more EUV layers than N2; High-NA extends monopoly through ACTIS A300. Trades -30% from 2024 highs on stale EUV-peaking narrative",
     },
 
     # ── Networking ────────────────────────────────────────────────────────────
     "Scale-Out Networking Silicon": {
         "unit": "Tb/s ports", "color": "#3498db",
-        "names": ["AVGO", "MRVL", "ANET"],
-        "lead_time_yrs": 0.75, "supply_growth_pct": 0.50,
+        "names": ["AVGO", "MRVL", "ANET", "CSCO (Silicon One)", "ALAB", "CRDO", "MTSI"],
+        "lead_time_yrs": 0.75, "supply_growth_pct": 0.45,
         "demand_driver": "networking", "demand_scale": 1.0,
-        "description": "Ethernet ASICs and switches for cluster interconnect; AVGO Tomahawk dominant",
+        "description": "AVGO Tomahawk 6 (102.4T) volume; Tomahawk 7 in dev; ANET silicon attach +50% in 2025",
     },
     "Optical Transceivers": {
         "unit": "M ports", "color": "#e74c3c",
-        "names": ["COHR", "Lumentum", "II-VI"],
-        "lead_time_yrs": 1.0, "supply_growth_pct": 0.40,
+        "names": ["COHR", "LITE", "CIEN", "FN", "MTSI", "AAOI", "POET", "CRDO"],
+        "lead_time_yrs": 1.0, "supply_growth_pct": 0.35,
         "demand_driver": "optics", "demand_scale": 1.0,
-        "description": "800G → 1.6T transceivers; silicon photonics transition underway",
+        "description": "800G fully ramping; 1.6T early 2026; CPO transition (2027-28). COHR/LITE/Innolight supply ~30-40% each",
     },
     "Fiber / Physical Cabling": {
         "unit": "km M", "color": "#7f8c8d",
-        "names": ["GLW", "Prysmian", "CommScope"],
-        "lead_time_yrs": 0.5, "supply_growth_pct": 0.35,
+        "names": ["GLW", "Prysmian", "CommScope", "BDC", "Furukawa 5801.T", "Sumitomo 5802.T", "Fujikura 5803.T"],
+        "lead_time_yrs": 0.5, "supply_growth_pct": 0.30,
         "demand_driver": "optics", "demand_scale": 0.8,
-        "description": "Single-mode fiber for intra-DC + long-haul; Corning capacity constrained 2024-2026",
+        "description": "Corning capacity-constrained 2024-26; Prysmian/CommScope at ceiling; MTP/MPO connector chokepoint",
     },
     "High-Speed Connectors": {
         "unit": "M units", "color": "#95a5a6",
-        "names": ["APH", "TE Connectivity", "Molex"],
-        "lead_time_yrs": 0.5, "supply_growth_pct": 0.38,
+        "names": ["APH", "TE Connectivity", "Molex", "MOG.A", "Bel Fuse", "Hirose 6806.T", "JAE 6807.T"],
+        "lead_time_yrs": 0.5, "supply_growth_pct": 0.35,
         "demand_driver": "server", "demand_scale": 1.2,
-        "description": "PCIe 5.0/6.0 connectors, power delivery connectors; Amphenol has 40%+ share",
+        "description": "APH 2025 +28% organic; demand +40%+ given rack-density. Amphenol has 40%+ share in PCIe 5.0/6.0 connectors",
     },
 
     # ── Physical Infrastructure ────────────────────────────────────────────────
     "Data Center Construction": {
         "unit": "GW capacity adds", "color": "#bdc3c7",
-        "names": ["MYRG", "Quanta Services (PWR)", "Turner"],
-        "lead_time_yrs": 2.0, "supply_growth_pct": 0.20,
+        "names": ["PWR", "MYRG", "FIX", "EME", "APG", "MTZ", "DY", "PRIM", "Turner"],
+        "lead_time_yrs": 2.0, "supply_growth_pct": 0.12,
         "demand_driver": "capex", "demand_scale": 1.0,
-        "description": "Hyperscaler build-out; MYRG is largest DC specialty contractor",
+        "description": "Specialty contractor labor capacity grows 5-8%/yr; PWR $44B / FIX $12.5B record backlogs reflect demand not supply",
     },
     "DC REITs / Co-lo": {
         "unit": "MW leased", "color": "#ecf0f1",
-        "names": ["EQIX", "DLR", "IREN"],
-        "lead_time_yrs": 2.5, "supply_growth_pct": 0.18,
+        "names": ["EQIX", "DLR", "IRM", "AMT", "IREN", "CORZ", "APLD", "NEXTDC", "Keppel DC"],
+        "lead_time_yrs": 3.0, "supply_growth_pct": 0.10,
         "demand_driver": "compute", "demand_scale": 0.5,
-        "description": "Co-location and wholesale DC capacity; hyperscalers increasingly build own",
+        "description": "New supply land+power-gated, not capital-gated; PJM queue determines supply. 30-48mo for net-new wholesale",
     },
 }
 
@@ -274,18 +327,249 @@ def build_token_demand(
     return pd.DataFrame(rows).set_index("year")
 
 
+# ── MACRO GAP FRAMEWORK ───────────────────────────────────────────────────────
+# Implements the "Efficiency Overlay" framework from Token_and_Data_Build_Out_v4_2
+# (colleague's sheet, sourced and cited). Operates at the AGGREGATE GW level —
+# global DC operational capacity, demand vs supply, and the resulting gap.
+#
+# This is the headline thesis output. Layer-level tightness scoring (the existing
+# build_infrastructure_demand_vintaged + build_tightness_scores) provides the
+# granular drilldown beneath this aggregate view.
+#
+# Sources (per Excel rows 52-61):
+# [1] Epoch AI 2024 — hardware efficiency doubling ~2 yr
+# [3] Hyperscaler GPU refresh 4-5yr; enterprise 7-8yr → fleet lag = 6 yr midpoint
+# [4][5][6] Cushman & Wakefield — US 40.6 / EMEA 10.3 / APAC 12.2 = 63 GW base
+# [7] JLL 2026 Global DC Outlook — 200 GW by 2030 forecast
+# [9] JLL — $11.3M/MW shell+core construction cost
+# [10] JLL — AI workload share 25% (2025) → 50% (2030); $15M/MW AI fit-out
+#
+# Macro gap scenarios (per Excel rows 64-67):
+#   Bear (fast efficiency):    doubling=1.5, lag=4, gap closes ~2032
+#   Base (empirical):          doubling=2.0, lag=6, gap persists through 2034+
+#   Bull (physics slowdown):   doubling=3.0, lag=8, gap never closes through 2042
+#   Infrastructure-only:       supply phase rates 0.15/0.20/0.20/0.12
+
+MACRO_SCENARIOS = {
+    "Base — empirical (Stonehouse)": {
+        "doubling": 2.0, "lag": 6,
+        "supply_rates": (0.22, 0.30, 0.25, 0.15),
+        "note": "Gap persists through 2034+. No air pocket for power names. Default.",
+    },
+    "Bear — fast efficiency": {
+        "doubling": 1.5, "lag": 4,
+        "supply_rates": (0.22, 0.30, 0.25, 0.15),
+        "note": "Gap closes ~2032. Air-pocket risk for silicon names; power names fade earlier.",
+    },
+    "Bull — physics slowdown": {
+        "doubling": 3.0, "lag": 8,
+        "supply_rates": (0.22, 0.30, 0.25, 0.15),
+        "note": "Gap never closes through 2042. All tiers critical, durable rent capture.",
+    },
+    "Infrastructure-only (slow build)": {
+        "doubling": 2.0, "lag": 6,
+        "supply_rates": (0.15, 0.20, 0.20, 0.12),
+        "note": "Models realistic physical build pace. Gap even larger; peak ~2031-32.",
+    },
+}
+
+
+def build_macro_gap(
+    token_df: pd.DataFrame,
+    anchor_gw_2025: float = 66.0,                        # Cushman & Wakefield total DC capacity
+    efficiency_doubling_years: float = 2.0,              # Epoch AI [1]
+    fleet_lag_years: int = 6,                            # 4-5yr hyperscaler + 7-8yr enterprise = 6 [3]
+    supply_phase_rates: tuple = (0.22, 0.30, 0.25, 0.15),  # 26-27, 28-30, 31-35, 36-42
+    cost_shell_per_mw_M: float = 11.3,                   # JLL [9]
+    cost_ai_fitout_per_mw_M: float = 15.0,               # JLL [10]
+    ai_workload_share: float = 0.50,                     # AI share of new builds (50% by 2030)
+    power_grid_share: float = 0.25,                      # Power & grid share of total DC capex
+) -> pd.DataFrame:
+    """Aggregate demand vs supply gap framework (colleague's Efficiency Overlay).
+
+    Returns DataFrame indexed by year with columns:
+      gross_tokens_T              — gross token demand from Excel
+      new_eff_idx                 — frontier (newest GPU) efficiency index, 2025=1.0
+      fleet_eff_idx               — fleet-weighted efficiency: replace 1/lag of fleet/yr
+      compute_per_token_idx       — 1 / fleet_eff_idx
+      net_compute_demand_T        — gross × compute_per_token_idx (monotonic non-decreasing)
+      demand_gw                   — net compute demand × (anchor / 2025 gross tokens)
+      supply_gw                   — anchor compounded at phase rates
+      incremental_supply_gw       — YoY supply addition
+      gap_gw                      — demand - supply (positive = undersupplied)
+      gap_pct                     — gap / demand
+      annual_total_capex_b        — $B total DC capex from incremental supply
+      annual_power_grid_capex_b   — power & grid share (25%)
+      cumulative_power_grid_capex_b — running total
+    """
+    cost_per_mw_blended_M = cost_shell_per_mw_M + cost_ai_fitout_per_mw_M * ai_workload_share
+
+    rows: list[dict] = []
+    fleet_eff_prev = 1.0
+    net_demand_prev = 0.0
+    supply_prev = anchor_gw_2025
+    cumulative_power_capex = 0.0
+
+    for year in YEARS:
+        yrs = year - 2025
+
+        # 1. Frontier efficiency (newest GPU generation)
+        new_eff_idx = 2.0 ** (yrs / efficiency_doubling_years)
+
+        # 2. Fleet-weighted efficiency: each year, 1/lag of fleet replaced by frontier
+        if year == 2025:
+            fleet_eff_idx = 1.0
+        else:
+            fleet_eff_idx = (1 - 1.0 / fleet_lag_years) * fleet_eff_prev + (1.0 / fleet_lag_years) * new_eff_idx
+        fleet_eff_prev = fleet_eff_idx
+
+        compute_per_token_idx = 1.0 / fleet_eff_idx
+
+        # 3. Demand
+        gross_tokens_T = float(token_df.loc[year, "total_T"])
+        net_compute_demand_T = gross_tokens_T * compute_per_token_idx
+        # Monotonic: deployed fleet doesn't get torn down even if efficiency improves
+        net_compute_demand_T = max(net_compute_demand_T, net_demand_prev)
+        net_demand_prev = net_compute_demand_T
+
+        # Convert to GW using 2025 anchor ratio (66 GW per 124.3 T tokens/day)
+        anchor_ratio = anchor_gw_2025 / float(token_df.loc[2025, "total_T"])
+        demand_gw = net_compute_demand_T * anchor_ratio
+
+        # 4. Supply (phase-rate compounding)
+        if year == 2025:
+            supply_gw = anchor_gw_2025
+        else:
+            if year <= 2027:
+                rate = supply_phase_rates[0]
+            elif year <= 2030:
+                rate = supply_phase_rates[1]
+            elif year <= 2035:
+                rate = supply_phase_rates[2]
+            else:
+                rate = supply_phase_rates[3]
+            supply_gw = supply_prev * (1.0 + rate)
+        incremental_supply_gw = supply_gw - supply_prev if year > 2025 else 0.0
+        supply_prev = supply_gw
+
+        # 5. Gap
+        gap_gw = demand_gw - supply_gw
+        gap_pct = gap_gw / demand_gw if demand_gw > 0 else 0.0
+
+        # 6. Capex (flows from supply additions, in $B)
+        # incremental_supply_gw × 1000 MW/GW × $cost/MW (in $M) / 1000 → $B
+        annual_total_capex_b = incremental_supply_gw * 1000.0 * cost_per_mw_blended_M / 1000.0
+        annual_power_grid_capex_b = annual_total_capex_b * power_grid_share
+        cumulative_power_capex += annual_power_grid_capex_b
+
+        rows.append({
+            "year": year,
+            "gross_tokens_T": gross_tokens_T,
+            "new_eff_idx": new_eff_idx,
+            "fleet_eff_idx": fleet_eff_idx,
+            "compute_per_token_idx": compute_per_token_idx,
+            "net_compute_demand_T": net_compute_demand_T,
+            "demand_gw": demand_gw,
+            "supply_gw": supply_gw,
+            "incremental_supply_gw": incremental_supply_gw,
+            "gap_gw": gap_gw,
+            "gap_pct": gap_pct,
+            "annual_total_capex_b": annual_total_capex_b,
+            "annual_power_grid_capex_b": annual_power_grid_capex_b,
+            "cumulative_power_grid_capex_b": cumulative_power_capex,
+        })
+
+    return pd.DataFrame(rows).set_index("year")
+
+
+def gap_summary(macro_df: pd.DataFrame) -> dict:
+    """Summarize the macro gap for headline metrics."""
+    peak_gap_year = int(macro_df["gap_gw"].idxmax())
+    peak_gap_gw = float(macro_df["gap_gw"].max())
+    peak_gap_pct = float(macro_df.loc[peak_gap_year, "gap_pct"])
+
+    # Balance year — first year after peak where gap < 30 GW (or hits negative)
+    balance_year = None
+    for y in macro_df.index:
+        if y < peak_gap_year:
+            continue
+        if macro_df.loc[y, "gap_gw"] < 30:
+            balance_year = int(y)
+            break
+
+    # Overshoot year — first year gap goes negative
+    overshoot_year = None
+    for y in macro_df.index:
+        if macro_df.loc[y, "gap_gw"] < 0:
+            overshoot_year = int(y)
+            break
+
+    return {
+        "peak_gap_gw": peak_gap_gw,
+        "peak_gap_year": peak_gap_year,
+        "peak_gap_pct": peak_gap_pct,
+        "balance_year": balance_year,
+        "overshoot_year": overshoot_year,
+        "cumulative_capex_2042_b": float(macro_df.loc[2042, "cumulative_power_grid_capex_b"]),
+    }
+
+
+def tflop_per_w_for_year(year: int) -> float:
+    """
+    Share-weighted fleet TFLOP/W ramping by GPU generation.
+    H100=5.65, H200=7.0, B200=9.0, GB200=~15, Rubin VR200=25-30.
+    Annualized arch cadence post-Blackwell collapses doubling to ~2 yr.
+    """
+    points = {2025: 9.0, 2026: 11.0, 2027: 14.0, 2028: 18.0, 2030: 25.0, 2035: 40.0, 2042: 60.0}
+    yrs = sorted(points)
+    if year <= yrs[0]:
+        return points[yrs[0]]
+    if year >= yrs[-1]:
+        return points[yrs[-1]]
+    for i in range(len(yrs) - 1):
+        if yrs[i] <= year <= yrs[i + 1]:
+            t = (year - yrs[i]) / (yrs[i + 1] - yrs[i])
+            return points[yrs[i]] + t * (points[yrs[i + 1]] - points[yrs[i]])
+    return 9.0
+
+
+def server_kw_for_year(year: int) -> float:
+    """
+    Average kW per AI server (rack-blended). GB200 NVL72 = 132 kW/rack.
+    Rubin VR200 NVL144 (Kyber vertical) approaches 600 kW/rack-assembly.
+    Ramp reflects shift from 8× HGX (16 kW) to rack-scale (NVL36/NVL72/NVL144).
+    """
+    points = {2025: 65.0, 2026: 90.0, 2027: 120.0, 2028: 150.0, 2030: 180.0, 2035: 240.0, 2042: 320.0}
+    yrs = sorted(points)
+    if year <= yrs[0]:
+        return points[yrs[0]]
+    if year >= yrs[-1]:
+        return points[yrs[-1]]
+    for i in range(len(yrs) - 1):
+        if yrs[i] <= year <= yrs[i + 1]:
+            t = (year - yrs[i]) / (yrs[i + 1] - yrs[i])
+            return points[yrs[i]] + t * (points[yrs[i + 1]] - points[yrs[i]])
+    return 65.0
+
+
 def build_infrastructure_demand(
     token_df: pd.DataFrame,
-    tokens_per_kwh_2025: float = 3_600_000,
-    efficiency_doubling_years: float = 2.5,
-    inference_utilization_2025: float = 0.067,
+    # Calibration anchors — see research/assumptions_validation.md
+    # Default = "high-conviction only" package: efficiency doubling 2.5→2.0 (the one
+    # change with strongest evidence per tech-ai-sector-analyst). Other agent-recommended
+    # changes (7M tokens/kWh, 12% utilization, 38 GW anchor) compound to break the 30 GW
+    # 2025 anchor calibration. Surface those as preset scenarios in the v2 dashboard.
+    tokens_per_kwh_2025: float = 3_600_000,            # H100-blended fleet baseline
+    efficiency_doubling_years: float = 2.0,            # post-Blackwell cadence (was 2.5) — HIGH CONVICTION
+    inference_utilization_2025: float = 0.067,         # 30 GW 2025 anchor calibration
     inference_utilization_2035: float = 0.18,
     pue_2025: float = 1.40,
     pue_2040: float = 1.15,
     hbm_gb_per_tflop: float = 1.38,
     ports_per_mw: float = 11_000,
-    server_kw: float = 25.0,          # kW per AI server (8× GPU rack average)
-    dram_tb_per_server: float = 1.0,  # TB DDR5 per AI server
+    server_kw_override: float | None = None,           # if None, ramps via server_kw_for_year
+    tflop_per_w_override: float | None = None,         # if None, ramps via tflop_per_w_for_year
+    dram_tb_per_server: float = 1.0,
 ) -> pd.DataFrame:
     """Translate token demand into infrastructure demand by layer."""
     rows = []
@@ -312,7 +596,6 @@ def build_infrastructure_demand(
         if year == 2025:
             compute_delta_mw = total_compute_mw * 0.35  # assume ~35% new in 2025
         else:
-            rows_so_far = len(rows)
             prev_compute = rows[-1]["total_compute_gw"] * 1000 if rows else 0
             compute_delta_mw = max(0, total_compute_mw - prev_compute)
 
@@ -322,8 +605,8 @@ def build_infrastructure_demand(
         cooling_mw = total_compute_mw * (pue - 1.0)
         power_total_gw = (total_compute_mw + cooling_mw) / 1000
 
-        # ── Compute (EFLOP/s): H100 ≈ 5.65 TFLOP/W ────────────────────────────
-        tflop_per_w = 5.65
+        # ── Compute (EFLOP/s) — gen-cadence step function ────────────────────
+        tflop_per_w = tflop_per_w_override if tflop_per_w_override is not None else tflop_per_w_for_year(year)
         compute_eflops = total_compute_mw * 1e6 * tflop_per_w / 1e18
 
         # ── HBM ──────────────────────────────────────────────────────────────
@@ -338,7 +621,8 @@ def build_infrastructure_demand(
         # ── EDA Tools ─────────────────────────────────────────────────────────
         eda_index = compute_delta_mw * 0.3
 
-        # ── Server count (per-server basis) ──────────────────────────────────
+        # ── Server count — rack density ramps as GB200 NVL72 → Rubin NVL144 ──
+        server_kw = server_kw_override if server_kw_override is not None else server_kw_for_year(year)
         server_count_M = (total_compute_mw * 1000) / server_kw / 1e6
 
         # ── Server DRAM ───────────────────────────────────────────────────────
@@ -389,12 +673,179 @@ def build_infrastructure_demand(
     return pd.DataFrame(rows).set_index("year")
 
 
+# ── Vintaged-fleet variant ────────────────────────────────────────────────────
+# GPUs deployed in year Y run at year-Y frontier efficiency for `fleet_life_years`
+# before retiring. The deployed fleet's blended efficiency lags frontier by ~half
+# the fleet life, because old vintages persist. This is materially more accurate
+# than the instantaneous-efficiency model — and pushes the power inflection LATER
+# than the simple model says (efficiency improvements take years to mark-to-market
+# across the installed base).
+
+def build_infrastructure_demand_vintaged(
+    token_df: pd.DataFrame,
+    initial_anchor_gw: float = 40.0,                   # 2025 deployed power anchor (slider)
+    tokens_per_kwh_2025: float = 3_600_000,            # FRONTIER 2025 (newest GPU eff)
+    efficiency_doubling_years: float = 2.0,            # frontier doubling rate
+    fleet_life_years: int = 6,                         # GPU/server lifecycle
+    inference_utilization_2025: float = 0.067,
+    inference_utilization_2035: float = 0.18,
+    pue_2025: float = 1.40,
+    pue_2040: float = 1.15,
+    hbm_gb_per_tflop: float = 1.38,
+    ports_per_mw: float = 11_000,
+    server_kw_override: float | None = None,
+    tflop_per_w_override: float | None = None,
+    dram_tb_per_server: float = 1.0,
+    initial_vintage_decay: float = 0.65,               # newer vintages get more weight in 2025 init
+) -> pd.DataFrame:
+    """
+    Vintaged fleet model — GPUs persist at their build-year efficiency for ~6 yr.
+
+    Each year:
+      1. Retire cohorts older than fleet_life_years
+      2. Compute remaining fleet's max inference output (MW × build-eff × util)
+      3. If demand > existing capacity, add new cohort at frontier efficiency
+      4. Total power = total_fleet_mw × PUE
+      5. Blended fleet efficiency = MW-weighted avg of active vintages
+
+    Returns same columns as `build_infrastructure_demand` plus:
+      - frontier_eff_tokens_per_kwh: efficiency of NEW capacity in this year
+      - fleet_blended_eff_tokens_per_kwh: weighted-avg efficiency of installed fleet
+      - fleet_age_avg_yrs: weighted-avg vintage age
+    """
+    def frontier_eff(year: int) -> float:
+        return tokens_per_kwh_2025 * 2 ** ((year - 2025) / efficiency_doubling_years)
+
+    def util_for(year: int) -> float:
+        t = min(1.0, (year - 2025) / (2035 - 2025))
+        return inference_utilization_2025 + t * (inference_utilization_2035 - inference_utilization_2025)
+
+    def pue_for(year: int) -> float:
+        t = min(1.0, (year - 2025) / (2040 - 2025))
+        return pue_2025 + t * (pue_2040 - pue_2025)
+
+    # ── Initialize 2025 fleet ─────────────────────────────────────────────────
+    # Anchor: total_compute_mw × PUE_2025 = initial_anchor_gw × 1000
+    initial_compute_mw = initial_anchor_gw * 1000.0 / pue_2025
+
+    # Distribute across vintages [2025-fleet_life+1 .. 2025] with exp-decay weights
+    vintage_years = list(range(2025 - fleet_life_years + 1, 2026))
+    raw_w = [initial_vintage_decay ** (2025 - y) for y in vintage_years]
+    norm = sum(raw_w)
+    weights = {y: w / norm for y, w in zip(vintage_years, raw_w)}
+
+    cohorts: dict[int, dict] = {}
+    for y, w in weights.items():
+        cohorts[y] = {"mw": initial_compute_mw * w, "eff": frontier_eff(y)}
+
+    rows = []
+    for year in YEARS:
+        yrs = year - 2025
+
+        # 1. Retire old cohorts
+        cutoff = year - fleet_life_years + 1
+        cohorts = {y: c for y, c in cohorts.items() if y >= cutoff}
+
+        u = util_for(year)
+        pue = pue_for(year)
+        f_eff = frontier_eff(year)
+
+        # 2. Existing fleet capability (tokens/day at inference util)
+        existing_mw = sum(c["mw"] for c in cohorts.values())
+        existing_eff_total = sum(c["mw"] * c["eff"] for c in cohorts.values())
+        existing_tokens_capacity = existing_eff_total * u * 24_000
+
+        # 3. Demand
+        cloud_tokens = token_df.loc[year, "total_cloud_T"]
+        demanded_tokens = cloud_tokens * 1e12
+
+        # 4. Add new cohort if shortfall
+        if year == 2025:
+            new_mw = 0.0  # initialized — don't double-count
+        else:
+            shortfall = demanded_tokens - existing_tokens_capacity
+            if shortfall > 0:
+                new_mw = shortfall / (u * 24_000 * f_eff)
+                cohorts[year] = {"mw": new_mw, "eff": f_eff}
+            else:
+                new_mw = 0.0  # over-supplied — old fleet runs at lower load (not modeled)
+
+        # 5. Total fleet
+        total_compute_mw = sum(c["mw"] for c in cohorts.values())
+        compute_delta_mw = new_mw
+
+        if total_compute_mw > 0:
+            blended_eff = sum(c["mw"] * c["eff"] for c in cohorts.values()) / total_compute_mw
+            avg_age = sum((year - y) * c["mw"] for y, c in cohorts.items()) / total_compute_mw
+        else:
+            blended_eff = f_eff
+            avg_age = 0.0
+
+        # 6. Power
+        cooling_mw = total_compute_mw * (pue - 1.0)
+        power_total_gw = (total_compute_mw + cooling_mw) / 1000
+
+        # 7. Inference MW = u × total fleet MW (drives networking)
+        inference_mw = u * total_compute_mw
+
+        # 8. Downstream demand columns (same structure as base model)
+        tflop_per_w = tflop_per_w_override if tflop_per_w_override is not None else tflop_per_w_for_year(year)
+        compute_eflops = total_compute_mw * 1e6 * tflop_per_w / 1e18
+        hbm_tb = total_compute_mw * 1e3 * tflop_per_w * hbm_gb_per_tflop / 1e6
+        cowos_index = compute_delta_mw * 0.5 + total_compute_mw * 0.1
+        fab_index = compute_delta_mw * 1.2 + hbm_tb * 0.02
+        eda_index = compute_delta_mw * 0.3
+        server_kw = server_kw_override if server_kw_override is not None else server_kw_for_year(year)
+        server_count_M = (total_compute_mw * 1000) / server_kw / 1e6
+        server_dram_tb = server_count_M * 1e6 * dram_tb_per_server
+        cpu_M = server_count_M * 2
+        substrate_M = server_count_M * 12
+        port_speed_factor = 1.0 if year < 2027 else (2.0 if year >= 2030 else 1.5)
+        networking_tbps = (inference_mw * ports_per_mw * 0.4) / (1e6 / port_speed_factor)
+        optics_ports_M = networking_tbps * 2.0
+        construction_index = compute_delta_mw / 1000
+        connectors_M = server_count_M * 40
+
+        rows.append({
+            "year": year,
+            "frontier_eff_tokens_per_kwh": f_eff,
+            "fleet_blended_eff_tokens_per_kwh": blended_eff,
+            "efficiency_tokens_per_kwh": blended_eff,           # alias for compat
+            "fleet_age_avg_yrs": avg_age,
+            "n_active_cohorts": len(cohorts),
+            "inference_mw": inference_mw,
+            "total_compute_gw": total_compute_mw / 1000,
+            "compute_delta_gw": compute_delta_mw / 1000,
+            "power_total_gw": power_total_gw,
+            "cooling_gw": cooling_mw / 1000,
+            "compute_eflops": compute_eflops,
+            "hbm_tb": hbm_tb,
+            "cowos_index": cowos_index,
+            "fab_index": fab_index,
+            "eda_index": eda_index,
+            "server_count_M": server_count_M,
+            "server_dram_tb": server_dram_tb,
+            "cpu_M": cpu_M,
+            "substrate_M": substrate_M,
+            "networking_tbps": networking_tbps,
+            "optics_ports_M": optics_ports_M,
+            "construction_index": construction_index,
+            "connectors_M": connectors_M,
+        })
+
+    return pd.DataFrame(rows).set_index("year")
+
+
 # Map each layer name to its demand column in infra_df
 LAYER_DEMAND_COL = {
     "Power Generation": "power_total_gw",
-    "Transformers / Switchgear": "power_total_gw",
+    "Grid Interconnect Queue": "construction_index",
+    "GOES (Electrical Steel)": "power_total_gw",
+    "Large Power Transformers (LPT)": "power_total_gw",
+    "Distribution Transformers": "power_total_gw",
     "UPS / Backup Power": "power_total_gw",
     "Liquid Cooling": "cooling_gw",
+    "Skilled Electrical Labor": "construction_index",
     "GPU / AI Accelerators": "compute_eflops",
     "HBM Memory": "hbm_tb",
     "CoWoS / Advanced Packaging": "cowos_index",
@@ -403,6 +854,9 @@ LAYER_DEMAND_COL = {
     "CPU / Host Processors": "cpu_M",
     "Server DRAM": "server_dram_tb",
     "Advanced Substrates / PCB": "substrate_M",
+    "ABF Dielectric Film": "substrate_M",
+    "HBM Hybrid Bonding": "hbm_tb",
+    "EUV Mask Inspection / Pellicles": "fab_index",
     "Scale-Out Networking Silicon": "networking_tbps",
     "Optical Transceivers": "optics_ports_M",
     "Fiber / Physical Cabling": "optics_ports_M",
@@ -525,7 +979,7 @@ FLOW_NODES = [
 
     # Power
     {"id": "ups",       "label": "UPS/\nBackup\nETN GNRC",        "x": 0.97, "y": 0.30, "layer": "UPS / Backup Power"},
-    {"id": "tx",        "label": "Transformers\nNVT HUBB",         "x": 0.97, "y": 0.50, "layer": "Transformers / Switchgear"},
+    {"id": "tx",        "label": "LPT\n6501.T GEV-Prolec",         "x": 0.97, "y": 0.50, "layer": "Large Power Transformers (LPT)"},
     {"id": "power_gen", "label": "Power Gen\nGEV Nuclear",         "x": 0.97, "y": 0.70, "layer": "Power Generation"},
 ]
 
@@ -556,3 +1010,280 @@ FLOW_EDGES = [
     ("ups",        "tx"),
     ("tx",         "power_gen"),
 ]
+
+
+# ── Names detail registry — for the "easiest bets" surface ────────────────────
+# tier: P = primary play (highest exposure), S = secondary, K = kicker (small / private / restricted)
+# Used by v2 dashboard to weight stock-level mispricing scores
+LAYER_NAMES_DETAIL = {
+    "Power Generation": [
+        ("GEV", "P", "Gas turbine slots through 2030; backlog 100→110 GW; pricing +10-20%/kW Q1 2026"),
+        ("CEG", "P", "Existing nuclear PPAs; behind-the-meter bypass for AI"),
+        ("VST", "P", "Texas merchant + nuclear restart optionality"),
+        ("TLN", "P", "AMZN nuclear PPA precedent; behind-the-meter"),
+        ("SE", "P", "Siemens Energy €146B backlog; Grid Tech 25-27% growth"),
+        ("MHI 7011.T", "S", "Japanese turbine doubling under-followed in US"),
+        ("Hitachi 6501.T", "S", "Hitachi Energy embedded; LPT capacity 2028"),
+        ("NRG", "S", "Independent power producer"),
+        ("AES", "S", "Renewables + grid storage"),
+        ("DUK", "K", "Regulated utility — slower growth"),
+        ("SO", "K", "Regulated utility"),
+        ("OKLO", "K", "SMR pre-revenue; not investable 2026-28"),
+    ],
+    "Grid Interconnect Queue": [
+        ("GEV", "P", "Owns interconnect supply chain"),
+        ("SE", "P", "Grid Technologies €146B"),
+        ("Hitachi 6501.T", "P", "Hitachi Energy LPT + grid"),
+        ("PWR", "P", "Quanta — interconnect EPC"),
+        ("MYRG", "P", "Specialty contractor labor"),
+        ("CEG", "P", "Behind-the-meter nuclear bypass"),
+        ("TLN", "P", "Behind-the-meter nuclear bypass"),
+        ("AEP", "S", "Transmission utility"),
+        ("EXC", "S", "Transmission utility"),
+        ("DUK", "S", "Transmission utility"),
+        ("VST", "S", "Behind-the-meter merchant"),
+        ("ABB", "S", "Grid automation"),
+    ],
+    "GOES (Electrical Steel)": [
+        ("CLF", "P", "Single US producer (Butler PA, Zanesville OH); embedded GOES franchise NOT in any sell-side SOTP — largest mispricing"),
+        ("POSCO 005490.KS", "P", "Korean GOES major"),
+        ("JFE 5411.T", "P", "Japanese GOES producer"),
+        ("Nippon Steel 5401.T", "P", "Japanese GOES producer"),
+        ("Stalprodukt", "S", "Polish small-cap"),
+        ("ThyssenKrupp", "S", "European GOES capacity"),
+        ("Baoshan 600019.SS", "S", "Chinese — restricted"),
+    ],
+    "Large Power Transformers (LPT)": [
+        ("Hitachi 6501.T", "P", "Hitachi Energy embedded; VA capacity online 2028"),
+        ("GEV (Prolec)", "P", "Prolec GE accretion; transformer-attach to turbines"),
+        ("SE", "P", "Siemens Energy Charlotte NC online early 2027"),
+        ("HUBB", "P", "Hubbell — utility transformer franchise"),
+        ("ABB", "P", "Grid automation + transformers"),
+        ("SPX Tech", "S", "Specialty transformers"),
+        ("WEG", "S", "Brazilian electric equipment"),
+        ("POWL", "S", "Powell Industries — switchgear"),
+    ],
+    "Distribution Transformers": [
+        ("ETN", "P", "Eaton Q4 2025 backlog $19.6B; Electrical Americas $13.2B (+31%)"),
+        ("NVT", "P", "nVent — pure-play electrical"),
+        ("HUBB", "P", "Hubbell distribution"),
+        ("ABB", "P", "Distribution automation"),
+        ("Schneider", "P", "Schneider Electric — global breadth"),
+        ("Legrand", "S", "European distribution"),
+        ("POWL", "S", "Powell Industries"),
+        ("ATKR", "S", "Atkore — electrical raceways"),
+    ],
+    "UPS / Backup Power": [
+        ("ETN", "P", "Eaton UPS franchise"),
+        ("VRT", "P", "Vertiv FY26 guide $13.5-14B; Americas +44% YoY"),
+        ("Schneider", "P", "Schneider Electric UPS"),
+        ("GNRC", "P", "Generac — backup gen"),
+        ("CMI", "P", "Cummins — gensets"),
+        ("CAT", "S", "Caterpillar — gensets"),
+        ("Kohler", "S", "Private — gensets"),
+        ("Delta 2308.TT", "S", "Taiwanese UPS"),
+    ],
+    "Liquid Cooling": [
+        ("VRT", "P", "Vertiv — installed-base advantage; Thermokay closing"),
+        ("MOD", "P", "Modine — CDU + cold plate"),
+        ("Nidec 6594.T", "P", "Japanese cooling motors"),
+        ("Boyd (ETN)", "P", "Boyd acquired by Eaton 2025 ($9.5B)"),
+        ("Munters", "S", "Swedish thermal — MTRS.ST"),
+        ("SPX Tech", "S", "Specialty cooling"),
+        ("Asetek", "S", "Direct-to-chip cooling"),
+        ("EMR", "K", "Emerson — diversified"),
+        ("JCI", "K", "Johnson Controls — building HVAC"),
+        ("TT", "K", "Trane Tech — commercial HVAC"),
+    ],
+    "Skilled Electrical Labor": [
+        ("MYRG", "P", "MYR Group — specialty contractor"),
+        ("PWR", "P", "Quanta — record $44B backlog YE25"),
+        ("EME", "P", "EMCOR — labor arbitrage not in multiples"),
+        ("FIX", "P", "Comfort Systems — record $12.5B backlog Q1 2026"),
+        ("IESC", "P", "IES Holdings — rethink prior cut given labor rent"),
+        ("APG", "S", "API Group"),
+        ("MTZ", "S", "MasTec"),
+        ("DY", "S", "Dycom"),
+        ("PRIM", "S", "Primoris Services"),
+    ],
+    "GPU / AI Accelerators": [
+        ("NVDA", "P", "Dominant; $1T Blackwell+Rubin orders through 2027"),
+        ("AVGO", "P", "Custom XPU; $21B Anthropic deal validates ASIC share gain"),
+        ("GOOG (TPU)", "P", "TPU v6/v7 internal silicon"),
+        ("AMZN (Trainium)", "P", "Trainium 3 ramping"),
+        ("AMD", "S", "MI355X — gaining slowly; lagging perf/W"),
+        ("MRVL", "S", "Trainium attach"),
+        ("ALAB", "S", "PCIe/CXL retimers"),
+        ("Cerebras", "K", "Private — IPO pending"),
+    ],
+    "HBM Memory": [
+        ("SK Hynix 000660.KS", "P", "Clear leader; NVDA qualified"),
+        ("MU", "P", "Micron — gaining share, 30% power efficiency advantage"),
+        ("Samsung 005930.KS", "P", "Struggling to qualify 8-Hi at NVDA"),
+        ("Lasertec 6920.T", "S", "HBM inspection equipment"),
+        ("Disco 6146.T", "S", "Wafer dicing for HBM"),
+        ("TEL 8035.T", "S", "Hybrid bonding deposition"),
+        ("Han Mi Semi", "K", "Korean TC bonders"),
+    ],
+    "CoWoS / Advanced Packaging": [
+        ("TSM", "P", "CoWoS-L 80→130k WPM end-26 (+62%)"),
+        ("ASE 3711.TT", "P", "OSAT leader"),
+        ("AMKR", "P", "Amkor — advanced packaging"),
+        ("INTC IFS", "S", "Intel Foundry — late entrant"),
+        ("BESI", "P", "Hybrid bonding tools — structural winner"),
+        ("ONTO", "S", "Onto Innovation — packaging metrology"),
+        ("Disco 6146.T", "S", "Dicing for advanced packaging"),
+        ("TEL 8035.T", "S", "Tokyo Electron — packaging tools"),
+    ],
+    "Fab Equipment": [
+        ("AMAT", "P", "Applied Materials — Etch/Dep beneficiary GAA"),
+        ("LRCX", "P", "Lam Research — etch leader"),
+        ("KLAC", "P", "KLA — process control"),
+        ("ASML", "P", "EUV monopoly — separate dynamic"),
+        ("TEL 8035.T", "S", "Tokyo Electron — etch/dep"),
+        ("TER", "S", "Teradyne — test"),
+        ("ENTG", "P", "Entegris — materials engineering; 1% yield = $800M for 1.4nm"),
+        ("MKSI", "S", "MKS Instruments"),
+        ("AEHR", "K", "AEHR Test Systems — niche"),
+        ("Lasertec 6920.T", "S", "EUV mask inspection — sole supplier"),
+    ],
+    "EDA Tools / IP": [
+        ("SNPS", "P", "Synopsys — duopoly"),
+        ("CDNS", "P", "Cadence — duopoly"),
+        ("ARM", "P", "ARM — royalty stream from custom silicon"),
+        ("Siemens EDA", "S", "Mentor — distant 3rd"),
+        ("ALAB", "S", "Astera Labs — IP+silicon"),
+        ("Rambus RMBS", "P", "HBM4 memory interface IP royalty stream — under-appreciated"),
+        ("CEVA", "K", "DSP IP"),
+    ],
+    "CPU / Host Processors": [
+        ("AMD (EPYC)", "P", "x86 server share +200bps/yr"),
+        ("INTC", "P", "Losing share -500bps 2025-26"),
+        ("ARM", "P", "+600bps server share to 7%"),
+        ("AMZN (Graviton)", "S", "Internal ARM server CPU"),
+        ("MSFT (Cobalt)", "S", "Internal ARM server CPU"),
+        ("GOOG (Axion)", "S", "Internal ARM server CPU"),
+        ("Ampere", "K", "Private — pure-play ARM server"),
+        ("AAPL (M-series)", "K", "Internal Mac silicon"),
+    ],
+    "Server DRAM": [
+        ("SK Hynix 000660.KS", "P", "Allocation gated; 2028 already booking"),
+        ("MU", "P", "Customers asking for 2028 allocation"),
+        ("Samsung 005930.KS", "P", "P4 fab flexibility — only player with conventional capacity adds"),
+        ("Nanya 2408.TT", "S", "Specialty DRAM"),
+        ("Winbond 2344.TT", "S", "Niche memory"),
+    ],
+    "Advanced Substrates / PCB": [
+        ("IBIDEN 4062.T", "P", "35%+ AI substrate share"),
+        ("Unimicron 3037.TT", "P", "Major Taiwanese substrate"),
+        ("TTM", "P", "TTM Tech — North America"),
+        ("AT&S", "S", "Austrian substrate"),
+        ("Shinko 6967.T", "S", "JIC-acquired 2024"),
+        ("SEMCO 009150.KS", "S", "Samsung Electro-Mechanics"),
+    ],
+    "ABF Dielectric Film": [
+        ("Ajinomoto 2802.T", "P", "SOLE ABF dielectric film supplier — true monopoly. Trades as food/staples; specialty chem re-rate catalyst 2026-27 as Fukushima capacity hits HBM4/CoWoS-L peak. Most mispriced silicon-stack name"),
+        ("Sekisui Chemical 4204.T", "S", "Adjacent specialty films — secondary ABF play"),
+        ("Mitsui Chemicals 4183.T", "S", "Pellicles + adjacent specialty chemicals"),
+    ],
+    "HBM Hybrid Bonding": [
+        ("BESI", "P", "Hybrid bonding tools monopoly into HBM4 transition. Sell-side underestimates HBM4 unit volume vs trailing logic-on-logic"),
+        ("ASMPT 0522.HK", "P", "Advanced packaging equipment leader; HBM TC bonder + transitioning to hybrid bonding"),
+        ("Han Mi Semi 042700.KS", "P", "TC bonder for HBM stacking — 90%+ share Korean memory ecosystem"),
+        ("AMAT", "S", "Hybrid bonding deposition layer (CMP, copper bonding interfaces)"),
+        ("TEL 8035.T", "S", "Hybrid bonding deposition tools"),
+    ],
+    "EUV Mask Inspection / Pellicles": [
+        ("Lasertec 6920.T", "P", "Actinic EUV mask inspection monopoly. A16 has more EUV layers than N2; High-NA extends monopoly to ACTIS A300. -30% from 2024 highs on stale EUV-peaking narrative"),
+        ("Mitsui Chemicals 4183.T", "P", "EUV pellicle leader — sole supplier for High-NA"),
+        ("ASML", "S", "EUV scanner monopoly (separate dynamic — capacity gating not the bottleneck)"),
+    ],
+    "Scale-Out Networking Silicon": [
+        ("AVGO", "P", "Tomahawk 6 (102.4T) volume; Tomahawk 7 in dev"),
+        ("MRVL", "P", "Marvell — networking silicon"),
+        ("ANET", "P", "Arista — silicon attach +50% in 2025"),
+        ("CSCO (Silicon One)", "S", "Cisco custom silicon"),
+        ("ALAB", "S", "Astera Labs PCIe/CXL"),
+        ("CRDO", "S", "Credo — AECs (+245% 2024)"),
+        ("MTSI", "S", "MACOM — driver/TIA"),
+    ],
+    "Optical Transceivers": [
+        ("COHR", "P", "Coherent — 800G/1.6T leader"),
+        ("LITE", "P", "Lumentum — major transceiver supplier"),
+        ("CIEN", "P", "Ciena — DCI Wolfe top pick"),
+        ("FN", "S", "Fabrinet — assembly"),
+        ("MTSI", "S", "MACOM"),
+        ("AAOI", "S", "Applied Optoelectronics — small-cap hyperscaler wins"),
+        ("POET", "K", "POET Technologies — Si photonics dev"),
+        ("CRDO", "S", "AEC alternative"),
+    ],
+    "Fiber / Physical Cabling": [
+        ("GLW", "P", "Corning — capacity-constrained 2024-26"),
+        ("Prysmian", "P", "PRY IM — at ceiling"),
+        ("CommScope", "P", "MTP/MPO chokepoint"),
+        ("BDC", "S", "Belden"),
+        ("Furukawa 5801.T", "S", "Japanese fiber"),
+        ("Sumitomo 5802.T", "S", "Cable + fusion splicers"),
+        ("Fujikura 5803.T", "S", "Japanese fiber"),
+    ],
+    "High-Speed Connectors": [
+        ("APH", "P", "Amphenol — 40%+ PCIe 5/6 share; 2025 +28% organic"),
+        ("TE Connectivity", "P", "TEL — major share"),
+        ("Molex", "P", "Private/Koch — major share"),
+        ("MOG.A", "S", "Moog — specialty"),
+        ("Bel Fuse", "S", "BELFB"),
+        ("Hirose 6806.T", "S", "Japanese connectors"),
+        ("JAE 6807.T", "S", "Japan Aviation Electronics"),
+    ],
+    "Data Center Construction": [
+        ("PWR", "P", "Quanta — record $44B backlog YE25"),
+        ("MYRG", "P", "MYR Group — labor arbitrage"),
+        ("FIX", "P", "Comfort Systems — modular pre-fab thesis validated"),
+        ("EME", "P", "EMCOR — labor scarcity rent"),
+        ("APG", "S", "API Group"),
+        ("MTZ", "S", "MasTec"),
+        ("DY", "S", "Dycom"),
+        ("PRIM", "S", "Primoris"),
+        ("Turner", "K", "Private — major DC GC"),
+    ],
+    "DC REITs / Co-lo": [
+        ("EQIX", "P", "Equinix — premium co-location"),
+        ("DLR", "P", "Digital Realty — wholesale"),
+        ("IRM", "S", "Iron Mountain — DC pivot"),
+        ("AMT", "S", "American Tower — DC pivot"),
+        ("IREN", "P", "Iris Energy — HPC hosting"),
+        ("CORZ", "P", "Core Scientific — HPC"),
+        ("APLD", "S", "Applied Digital — HPC hosting"),
+        ("NEXTDC", "S", "NXT AU — Australian DC"),
+        ("Keppel DC", "S", "KDC SP — Asian DC REIT"),
+    ],
+}
+
+
+def all_tickers_with_layers() -> dict:
+    """Returns {ticker: [(layer, tier, rationale), ...]} — used by v2 dashboard."""
+    out: dict = {}
+    for layer, names in LAYER_NAMES_DETAIL.items():
+        for ticker, tier, rationale in names:
+            out.setdefault(ticker, []).append((layer, tier, rationale))
+    return out
+
+
+# ── Monopoly / sole-source tickers ────────────────────────────────────────────
+# Used by the v2 dashboard's composite scoring formula. These names are
+# structurally underpriced because the sum-of-tightness ranking favors breadth
+# (multi-layer plays) over depth (single layer, single supplier, no substitute).
+# Curated from the Stonehouse research desks' own mispricing flags.
+MONOPOLY_TICKERS = {
+    "CLF",                     # GOES — sole US producer
+    "Ajinomoto 2802.T",        # ABF dielectric film — sole supplier
+    "Lasertec 6920.T",         # Actinic EUV mask inspection — monopoly
+    "BESI",                    # Hybrid bonding tools — monopoly into HBM4
+    "ASML",                    # EUV scanner — monopoly
+    "TSM",                     # Leading-edge foundry — effective monopoly
+    "MU",                      # Only US HBM producer (national security premium)
+    "GLW",                     # Corning — fiber capacity-constrained
+    "Han Mi Semi 042700.KS",   # TC bonder for Korean HBM ecosystem
+    "ASMPT 0522.HK",           # Advanced packaging equipment leader
+    "Mitsui Chemicals 4183.T", # EUV pellicle sole supplier
+}

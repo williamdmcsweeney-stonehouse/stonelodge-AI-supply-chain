@@ -1,7 +1,11 @@
 __pycache__/
 *.pyc
 *.pyo
-.streamlit/
+.streamlit/secrets.toml
 streamlit.log
 *.log
 .env
+
+# Local Claude state (agent definitions in .claude/agents/ ARE tracked)
+.claude/settings.local.json
+.claude/agent-memory/

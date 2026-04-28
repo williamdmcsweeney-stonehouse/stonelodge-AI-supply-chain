@@ -1,0 +1,1500 @@
+[
+  {
+    "tier": "T1",
+    "name": "Raw Materials",
+    "full_name": "Raw Materials & Specialty Chemicals",
+    "track": "silicon",
+    "companies": [
+      {
+        "ticker": "SHECY",
+        "name": "Shin-Etsu Chemical",
+        "ev_ebitda": null,
+        "mkt_cap_M": 84226,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "SUMCO",
+        "name": "SUMCO Corp",
+        "ev_ebitda": 9.0,
+        "mkt_cap_M": 4900,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": true
+      },
+      {
+        "ticker": "ENTG",
+        "name": "Entegris",
+        "ev_ebitda": 28.6,
+        "mkt_cap_M": 23748,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "APD",
+        "name": "Air Products",
+        "ev_ebitda": 16.0,
+        "mkt_cap_M": 67189,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "LIN",
+        "name": "Linde",
+        "ev_ebitda": 18.8,
+        "mkt_cap_M": 236470,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "AIQUY",
+        "name": "Air Liquide",
+        "ev_ebitda": 13.7,
+        "mkt_cap_M": 127731,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "MKKGY",
+        "name": "Merck KGaA",
+        "ev_ebitda": 10.2,
+        "mkt_cap_M": 16929,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "ALB",
+        "name": "Albemarle",
+        "ev_ebitda": 11.2,
+        "mkt_cap_M": 22194,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "MTLHY",
+        "name": "Mitsubishi Chemical",
+        "ev_ebitda": null,
+        "mkt_cap_M": 8236,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "CCMP",
+        "name": "CMC Materials",
+        "ev_ebitda": null,
+        "mkt_cap_M": null,
+        "pivotal": false,
+        "private": true,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "JSRCY",
+        "name": "JSR Corp",
+        "ev_ebitda": null,
+        "mkt_cap_M": null,
+        "pivotal": false,
+        "private": true,
+        "is_new_v5": false
+      }
+    ]
+  },
+  {
+    "tier": "T2",
+    "name": "Semicon Equipment & Test",
+    "full_name": "Semiconductor Manufacturing Equipment & Test",
+    "track": "silicon",
+    "companies": [
+      {
+        "ticker": "ASML",
+        "name": "ASML",
+        "ev_ebitda": 30.8,
+        "mkt_cap_M": 567775,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "AMAT",
+        "name": "Applied Materials",
+        "ev_ebitda": 32.2,
+        "mkt_cap_M": 330967,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "LRCX",
+        "name": "Lam Research",
+        "ev_ebitda": 39.2,
+        "mkt_cap_M": 334878,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "KLAC",
+        "name": "KLA Corporation",
+        "ev_ebitda": 42.1,
+        "mkt_cap_M": 253633,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "TOELY",
+        "name": "Tokyo Electron",
+        "ev_ebitda": 24.4,
+        "mkt_cap_M": 135572,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "ACLS",
+        "name": "Axcelis",
+        "ev_ebitda": 35.3,
+        "mkt_cap_M": 4398,
+        "pivotal": true,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "IPGP",
+        "name": "IPG Photonics",
+        "ev_ebitda": 26.8,
+        "mkt_cap_M": 5286,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "ATEYY",
+        "name": "Advantest",
+        "ev_ebitda": 29.0,
+        "mkt_cap_M": 135106,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "ONTO",
+        "name": "Onto Innovation",
+        "ev_ebitda": 33.3,
+        "mkt_cap_M": 15314,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "TER",
+        "name": "Teradyne",
+        "ev_ebitda": 49.6,
+        "mkt_cap_M": 65453,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "VECO",
+        "name": "Veeco",
+        "ev_ebitda": 25.8,
+        "mkt_cap_M": 3124,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "COHU",
+        "name": "Cohu",
+        "ev_ebitda": 33.7,
+        "mkt_cap_M": 2205,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "KEYS",
+        "name": "Keysight",
+        "ev_ebitda": 31.3,
+        "mkt_cap_M": 59500,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": true
+      },
+      {
+        "ticker": "AEIS",
+        "name": "Advanced Energy",
+        "ev_ebitda": 32.4,
+        "mkt_cap_M": 14726,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": true
+      },
+      {
+        "ticker": "CAMT",
+        "name": "Camtek",
+        "ev_ebitda": 60.5,
+        "mkt_cap_M": 9303,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": true
+      },
+      {
+        "ticker": "NVMI",
+        "name": "Nova Ltd.",
+        "ev_ebitda": 47.2,
+        "mkt_cap_M": 17257,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": true
+      },
+      {
+        "ticker": "ESE",
+        "name": "ESCO / ETS-Lindgren",
+        "ev_ebitda": 26.1,
+        "mkt_cap_M": 8284,
+        "pivotal": true,
+        "private": false,
+        "is_new_v5": true
+      }
+    ]
+  },
+  {
+    "tier": "T3",
+    "name": "Chip Design & EDA",
+    "full_name": "Chip Design, EDA & IP Licensing",
+    "track": "silicon",
+    "companies": [
+      {
+        "ticker": "NVDA",
+        "name": "NVIDIA",
+        "ev_ebitda": 20.8,
+        "mkt_cap_M": 5060961,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "AMD",
+        "name": "AMD",
+        "ev_ebitda": 48.2,
+        "mkt_cap_M": 567048,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "AVGO",
+        "name": "Broadcom",
+        "ev_ebitda": 30.1,
+        "mkt_cap_M": 2001628,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "MRVL",
+        "name": "Marvell",
+        "ev_ebitda": 33.8,
+        "mkt_cap_M": 143682,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "INTC",
+        "name": "Intel",
+        "ev_ebitda": 22.8,
+        "mkt_cap_M": 414434,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "QCOM",
+        "name": "Qualcomm",
+        "ev_ebitda": 10.7,
+        "mkt_cap_M": 158823,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "ARM",
+        "name": "ARM Holdings",
+        "ev_ebitda": 68.8,
+        "mkt_cap_M": 249133,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "CDNS",
+        "name": "Cadence",
+        "ev_ebitda": 32.0,
+        "mkt_cap_M": 91908,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "SNPS",
+        "name": "Synopsys",
+        "ev_ebitda": 27.2,
+        "mkt_cap_M": 95938,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "ADI",
+        "name": "Analog Devices",
+        "ev_ebitda": 23.6,
+        "mkt_cap_M": 195072,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": true
+      },
+      {
+        "ticker": "TXN",
+        "name": "Texas Instruments",
+        "ev_ebitda": 24.5,
+        "mkt_cap_M": 252326,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": true
+      },
+      {
+        "ticker": "MPWR",
+        "name": "Monolithic Power",
+        "ev_ebitda": 64.4,
+        "mkt_cap_M": 80164,
+        "pivotal": true,
+        "private": false,
+        "is_new_v5": true
+      },
+      {
+        "ticker": "NXPI",
+        "name": "NXP Semiconductors",
+        "ev_ebitda": 13.3,
+        "mkt_cap_M": 61667,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": true
+      },
+      {
+        "ticker": "MCHP",
+        "name": "Microchip Technology",
+        "ev_ebitda": 22.1,
+        "mkt_cap_M": 48399,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": true
+      },
+      {
+        "ticker": "ON",
+        "name": "ON Semiconductor",
+        "ev_ebitda": 21.2,
+        "mkt_cap_M": 38703,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": true
+      },
+      {
+        "ticker": "SMTC",
+        "name": "Semtech",
+        "ev_ebitda": 36.3,
+        "mkt_cap_M": 10205,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": true
+      },
+      {
+        "ticker": "CBRS",
+        "name": "Cerebras",
+        "ev_ebitda": null,
+        "mkt_cap_M": null,
+        "pivotal": false,
+        "private": true,
+        "is_new_v5": false
+      }
+    ]
+  },
+  {
+    "tier": "T4",
+    "name": "Foundries, Memory & Packaging",
+    "full_name": "Chip Fabrication, Memory & Advanced Packaging",
+    "track": "silicon",
+    "companies": [
+      {
+        "ticker": "TSM",
+        "name": "TSMC",
+        "ev_ebitda": 14.6,
+        "mkt_cap_M": 1800440,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "SSNLF",
+        "name": "Samsung",
+        "ev_ebitda": 4.1,
+        "mkt_cap_M": 949081,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "SK Hynix",
+        "name": "SK Hynix",
+        "ev_ebitda": null,
+        "mkt_cap_M": null,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "MU",
+        "name": "Micron Technology",
+        "ev_ebitda": 6.7,
+        "mkt_cap_M": 560168,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "WDC",
+        "name": "Western Digital",
+        "ev_ebitda": 33.1,
+        "mkt_cap_M": 136971,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": true
+      },
+      {
+        "ticker": "SNDK",
+        "name": "SanDisk",
+        "ev_ebitda": 18.6,
+        "mkt_cap_M": 146110,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": true
+      },
+      {
+        "ticker": "STX",
+        "name": "Seagate",
+        "ev_ebitda": 34.1,
+        "mkt_cap_M": 127845,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": true
+      },
+      {
+        "ticker": "RMBS",
+        "name": "Rambus",
+        "ev_ebitda": 40.7,
+        "mkt_cap_M": 17132,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": true
+      },
+      {
+        "ticker": "GFS",
+        "name": "GlobalFoundries",
+        "ev_ebitda": 14.2,
+        "mkt_cap_M": 34381,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "ASX",
+        "name": "ASE Technology",
+        "ev_ebitda": 14.6,
+        "mkt_cap_M": 70304,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "AMKR",
+        "name": "Amkor",
+        "ev_ebitda": 14.4,
+        "mkt_cap_M": 19354,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "KLIC",
+        "name": "Kulicke & Soffa",
+        "ev_ebitda": 25.4,
+        "mkt_cap_M": 4590,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      }
+    ]
+  },
+  {
+    "tier": "T5",
+    "name": "Servers, Networking & Interconnect",
+    "full_name": "AI Servers, Networking & Interconnect",
+    "track": "silicon",
+    "companies": [
+      {
+        "ticker": "SMCI",
+        "name": "Super Micro",
+        "ev_ebitda": 10.8,
+        "mkt_cap_M": 17419,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "DELL",
+        "name": "Dell",
+        "ev_ebitda": 11.7,
+        "mkt_cap_M": 70371,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "HPE",
+        "name": "HPE",
+        "ev_ebitda": 7.8,
+        "mkt_cap_M": 37364,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "ANET",
+        "name": "Arista Networks",
+        "ev_ebitda": 39.6,
+        "mkt_cap_M": 222760,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "CSCO",
+        "name": "Cisco",
+        "ev_ebitda": 15.5,
+        "mkt_cap_M": 351580,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "COHR",
+        "name": "Coherent",
+        "ev_ebitda": 41.2,
+        "mkt_cap_M": 65628,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "FN",
+        "name": "Fabrinet",
+        "ev_ebitda": 44.6,
+        "mkt_cap_M": 25802,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "LITE",
+        "name": "Lumentum",
+        "ev_ebitda": 83.6,
+        "mkt_cap_M": 62949,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "CLS",
+        "name": "Celestica",
+        "ev_ebitda": 21.8,
+        "mkt_cap_M": 47126,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "APH",
+        "name": "Amphenol",
+        "ev_ebitda": 20.5,
+        "mkt_cap_M": 184058,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "TEL",
+        "name": "TE Connectivity",
+        "ev_ebitda": 13.0,
+        "mkt_cap_M": 62992,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "HNHPF",
+        "name": "Foxconn",
+        "ev_ebitda": 7.1,
+        "mkt_cap_M": 98558,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "WCC",
+        "name": "Wesco Intl",
+        "ev_ebitda": 12.7,
+        "mkt_cap_M": 15410,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "FERG",
+        "name": "Ferguson",
+        "ev_ebitda": 16.9,
+        "mkt_cap_M": 51240,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "ALAB",
+        "name": "Astera Labs",
+        "ev_ebitda": 77.3,
+        "mkt_cap_M": 36228,
+        "pivotal": true,
+        "private": false,
+        "is_new_v5": true
+      },
+      {
+        "ticker": "CRDO",
+        "name": "Credo Technology",
+        "ev_ebitda": 57.1,
+        "mkt_cap_M": 35975,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": true
+      },
+      {
+        "ticker": "MTSI",
+        "name": "MACOM Technology",
+        "ev_ebitda": 57.3,
+        "mkt_cap_M": 21576,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": true
+      },
+      {
+        "ticker": "SMTC",
+        "name": "Semtech",
+        "ev_ebitda": 36.3,
+        "mkt_cap_M": 10205,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": true
+      }
+    ]
+  },
+  {
+    "tier": "T6",
+    "name": "Hyperscalers & Cloud",
+    "full_name": "Hyperscalers, Cloud & AI Inference Platforms",
+    "track": "silicon",
+    "companies": [
+      {
+        "ticker": "MSFT",
+        "name": "Microsoft",
+        "ev_ebitda": 16.3,
+        "mkt_cap_M": 3153071,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "AMZN",
+        "name": "Amazon",
+        "ev_ebitda": 14.2,
+        "mkt_cap_M": 2839015,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "GOOGL",
+        "name": "Alphabet",
+        "ev_ebitda": 18.8,
+        "mkt_cap_M": 3866633,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "META",
+        "name": "Meta",
+        "ev_ebitda": 12.2,
+        "mkt_cap_M": 1482397,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "ORCL",
+        "name": "Oracle",
+        "ev_ebitda": 17.1,
+        "mkt_cap_M": 498361,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "CRWV",
+        "name": "CoreWeave",
+        "ev_ebitda": 11.0,
+        "mkt_cap_M": 46152,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "DOCN",
+        "name": "DigitalOcean",
+        "ev_ebitda": 28.3,
+        "mkt_cap_M": 9748,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "OpenAI",
+        "name": "OpenAI",
+        "ev_ebitda": null,
+        "mkt_cap_M": null,
+        "pivotal": false,
+        "private": true,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "Anthropic",
+        "name": "Anthropic",
+        "ev_ebitda": null,
+        "mkt_cap_M": null,
+        "pivotal": false,
+        "private": true,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "xAI",
+        "name": "xAI",
+        "ev_ebitda": null,
+        "mkt_cap_M": null,
+        "pivotal": false,
+        "private": true,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "Lambda",
+        "name": "Lambda Labs",
+        "ev_ebitda": null,
+        "mkt_cap_M": null,
+        "pivotal": false,
+        "private": true,
+        "is_new_v5": false
+      }
+    ]
+  },
+  {
+    "tier": "T7",
+    "name": "DC Real Estate & Build",
+    "full_name": "Data Center Real Estate & Construction",
+    "track": "dc",
+    "companies": [
+      {
+        "ticker": "EQIX",
+        "name": "Equinix",
+        "ev_ebitda": 24.7,
+        "mkt_cap_M": 109350,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "DLR",
+        "name": "Digital Realty",
+        "ev_ebitda": 24.6,
+        "mkt_cap_M": 68723,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "IRM",
+        "name": "Iron Mountain",
+        "ev_ebitda": 18.7,
+        "mkt_cap_M": 34516,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "FIX",
+        "name": "Comfort Systems USA",
+        "ev_ebitda": 30.5,
+        "mkt_cap_M": 60764,
+        "pivotal": true,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "EME",
+        "name": "EMCOR Group",
+        "ev_ebitda": 20.4,
+        "mkt_cap_M": 38739,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "PWR",
+        "name": "Quanta Services",
+        "ev_ebitda": 29.5,
+        "mkt_cap_M": 93488,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "MYRG",
+        "name": "MYR Group",
+        "ev_ebitda": 19.0,
+        "mkt_cap_M": 5272,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "ACM",
+        "name": "AECOM",
+        "ev_ebitda": 10.0,
+        "mkt_cap_M": 10391,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "SKBSY",
+        "name": "Skanska",
+        "ev_ebitda": null,
+        "mkt_cap_M": 10854,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "BLD",
+        "name": "TopBuild",
+        "ev_ebitda": 14.8,
+        "mkt_cap_M": 12714,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "Turner",
+        "name": "Turner Construction",
+        "ev_ebitda": null,
+        "mkt_cap_M": null,
+        "pivotal": false,
+        "private": true,
+        "is_new_v5": false
+      }
+    ]
+  },
+  {
+    "tier": "T8",
+    "name": "Cooling & Power Dist.",
+    "full_name": "Data Center Cooling & Power Distribution",
+    "track": "dc",
+    "companies": [
+      {
+        "ticker": "VRT",
+        "name": "Vertiv",
+        "ev_ebitda": 37.5,
+        "mkt_cap_M": 124244,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "ETN",
+        "name": "Eaton",
+        "ev_ebitda": 23.4,
+        "mkt_cap_M": 164475,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "SBGSY",
+        "name": "Schneider Electric",
+        "ev_ebitda": 18.8,
+        "mkt_cap_M": 186460,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "HUBB",
+        "name": "Hubbell",
+        "ev_ebitda": 20.0,
+        "mkt_cap_M": 29326,
+        "pivotal": true,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "MOD",
+        "name": "Modine",
+        "ev_ebitda": 25.8,
+        "mkt_cap_M": 13272,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "NVT",
+        "name": "nVent Electric",
+        "ev_ebitda": 23.4,
+        "mkt_cap_M": 22989,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "EMR",
+        "name": "Emerson",
+        "ev_ebitda": 17.0,
+        "mkt_cap_M": 79481,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "TT",
+        "name": "Trane Technologies",
+        "ev_ebitda": 23.9,
+        "mkt_cap_M": 107660,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "CoolIT",
+        "name": "CoolIT Systems",
+        "ev_ebitda": null,
+        "mkt_cap_M": null,
+        "pivotal": false,
+        "private": true,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "Submer",
+        "name": "Submer",
+        "ev_ebitda": null,
+        "mkt_cap_M": null,
+        "pivotal": false,
+        "private": true,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "LiqStk",
+        "name": "LiquidStack",
+        "ev_ebitda": null,
+        "mkt_cap_M": null,
+        "pivotal": false,
+        "private": true,
+        "is_new_v5": false
+      }
+    ]
+  },
+  {
+    "tier": "T9",
+    "name": "On-site Power & Backup",
+    "full_name": "On-Site Power & Backup Generation",
+    "track": "power",
+    "companies": [
+      {
+        "ticker": "BE",
+        "name": "Bloom Energy",
+        "ev_ebitda": 106.7,
+        "mkt_cap_M": 65285,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "CAT",
+        "name": "Caterpillar",
+        "ev_ebitda": 27.3,
+        "mkt_cap_M": 386556,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "CMI",
+        "name": "Cummins",
+        "ev_ebitda": 15.3,
+        "mkt_cap_M": 91293,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "GNRC",
+        "name": "Generac",
+        "ev_ebitda": 15.8,
+        "mkt_cap_M": 12963,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "SMR",
+        "name": "NuScale Power",
+        "ev_ebitda": null,
+        "mkt_cap_M": 3872,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "OKLO",
+        "name": "Oklo",
+        "ev_ebitda": null,
+        "mkt_cap_M": 12323,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "PLUG",
+        "name": "Plug Power",
+        "ev_ebitda": null,
+        "mkt_cap_M": 4377,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "ENS",
+        "name": "EnerSys",
+        "ev_ebitda": 12.1,
+        "mkt_cap_M": 7713,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "FLNC",
+        "name": "Fluence Energy",
+        "ev_ebitda": 36.1,
+        "mkt_cap_M": 1772,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "Kairos",
+        "name": "Kairos Power",
+        "ev_ebitda": null,
+        "mkt_cap_M": null,
+        "pivotal": false,
+        "private": true,
+        "is_new_v5": false
+      }
+    ]
+  },
+  {
+    "tier": "T11",
+    "name": "Transformers & Switchgear",
+    "full_name": "Transmission & Substation Equipment",
+    "track": "power",
+    "companies": [
+      {
+        "ticker": "HUBB",
+        "name": "Hubbell",
+        "ev_ebitda": 20.0,
+        "mkt_cap_M": 29326,
+        "pivotal": true,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "ETN",
+        "name": "Eaton",
+        "ev_ebitda": 23.4,
+        "mkt_cap_M": 164475,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "ABB",
+        "name": "ABB",
+        "ev_ebitda": 22.3,
+        "mkt_cap_M": 180646,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "SIEGY",
+        "name": "Siemens",
+        "ev_ebitda": 15.9,
+        "mkt_cap_M": 222536,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "HTHIY",
+        "name": "Hitachi Energy",
+        "ev_ebitda": 12.2,
+        "mkt_cap_M": 148688,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "SPXC",
+        "name": "SPX Technologies",
+        "ev_ebitda": 18.1,
+        "mkt_cap_M": 11180,
+        "pivotal": true,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "ESE",
+        "name": "ESCO Tech / Doble",
+        "ev_ebitda": 26.1,
+        "mkt_cap_M": 8284,
+        "pivotal": true,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "POWL",
+        "name": "Powell Industries",
+        "ev_ebitda": 34.5,
+        "mkt_cap_M": 9207,
+        "pivotal": true,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "ROP",
+        "name": "Roper Technologies",
+        "ev_ebitda": 14.0,
+        "mkt_cap_M": 36179,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "CLF",
+        "name": "Cleveland-Cliffs (GOES)",
+        "ev_ebitda": 10.7,
+        "mkt_cap_M": 5567,
+        "pivotal": true,
+        "private": false,
+        "is_new_v5": true
+      },
+      {
+        "ticker": "WTS",
+        "name": "Watts Water",
+        "ev_ebitda": 16.7,
+        "mkt_cap_M": 8273,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": true
+      }
+    ]
+  },
+  {
+    "tier": "T12",
+    "name": "Line Hardware & HVDC",
+    "full_name": "Transmission Line Hardware, Conductors & HVDC Cable",
+    "track": "power",
+    "companies": [
+      {
+        "ticker": "PLPC",
+        "name": "Preformed Line Products",
+        "ev_ebitda": 18.7,
+        "mkt_cap_M": 1720,
+        "pivotal": true,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "HUBB",
+        "name": "Hubbell Power Systems",
+        "ev_ebitda": 20.0,
+        "mkt_cap_M": 29326,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "TEL",
+        "name": "TE Connectivity",
+        "ev_ebitda": 13.0,
+        "mkt_cap_M": 62992,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "PRYMF",
+        "name": "Prysmian",
+        "ev_ebitda": 14.6,
+        "mkt_cap_M": 44204,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "NEXNY",
+        "name": "Nexans",
+        "ev_ebitda": null,
+        "mkt_cap_M": 7041,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "NKT",
+        "name": "NKT A/S",
+        "ev_ebitda": 14.3,
+        "mkt_cap_M": 7595,
+        "pivotal": true,
+        "private": false,
+        "is_new_v5": true
+      },
+      {
+        "ticker": "Sthwre",
+        "name": "Southwire",
+        "ev_ebitda": null,
+        "mkt_cap_M": null,
+        "pivotal": false,
+        "private": true,
+        "is_new_v5": false
+      }
+    ]
+  },
+  {
+    "tier": "T13",
+    "name": "Poles & Steel Towers",
+    "full_name": "Poles, Towers & Structural Steel Fabrication",
+    "track": "power",
+    "companies": [
+      {
+        "ticker": "VMI",
+        "name": "Valmont Industries",
+        "ev_ebitda": 14.1,
+        "mkt_cap_M": 9752,
+        "pivotal": true,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "ACA",
+        "name": "Arcosa",
+        "ev_ebitda": 12.4,
+        "mkt_cap_M": 5864,
+        "pivotal": true,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "TRN",
+        "name": "Trinity Industries",
+        "ev_ebitda": 10.0,
+        "mkt_cap_M": 2529,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "NUE",
+        "name": "Nucor",
+        "ev_ebitda": 9.5,
+        "mkt_cap_M": 48810,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "STLD",
+        "name": "Steel Dynamics",
+        "ev_ebitda": 10.4,
+        "mkt_cap_M": 32822,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "Sabre",
+        "name": "Sabre Industries",
+        "ev_ebitda": null,
+        "mkt_cap_M": null,
+        "pivotal": false,
+        "private": true,
+        "is_new_v5": false
+      }
+    ]
+  },
+  {
+    "tier": "T14",
+    "name": "Galvanizing",
+    "full_name": "Steel Corrosion Protection \u2014 Hot-Dip Galvanizing",
+    "track": "power",
+    "companies": [
+      {
+        "ticker": "AZZ",
+        "name": "AZZ Inc.",
+        "ev_ebitda": 12.5,
+        "mkt_cap_M": 4283,
+        "pivotal": true,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "VMI",
+        "name": "Valmont (Galvanizing)",
+        "ev_ebitda": 14.1,
+        "mkt_cap_M": 9752,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      }
+    ]
+  },
+  {
+    "tier": "T15",
+    "name": "Defense & Adjacent",
+    "full_name": "Defense & Adjacent Industrial \u2014 AI-Driven Geopolitical Demand",
+    "track": "defense",
+    "companies": [
+      {
+        "ticker": "GHM",
+        "name": "Graham Corporation",
+        "ev_ebitda": 33.7,
+        "mkt_cap_M": 1078,
+        "pivotal": true,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "ESE",
+        "name": "ESCO Technologies",
+        "ev_ebitda": 26.1,
+        "mkt_cap_M": 8284,
+        "pivotal": true,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "ATMU",
+        "name": "Atmus Filtration",
+        "ev_ebitda": 13.7,
+        "mkt_cap_M": 5083,
+        "pivotal": true,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "IPGP",
+        "name": "IPG Photonics",
+        "ev_ebitda": 26.8,
+        "mkt_cap_M": 5286,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "BWXT",
+        "name": "BWX Technologies",
+        "ev_ebitda": 33.6,
+        "mkt_cap_M": 20443,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "HII",
+        "name": "Huntington Ingalls",
+        "ev_ebitda": 15.8,
+        "mkt_cap_M": 14148,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "GD",
+        "name": "General Dynamics",
+        "ev_ebitda": 13.9,
+        "mkt_cap_M": 84832,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "CW",
+        "name": "Curtiss-Wright",
+        "ev_ebitda": 33.2,
+        "mkt_cap_M": 26482,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "TDG",
+        "name": "TransDigm",
+        "ev_ebitda": 17.9,
+        "mkt_cap_M": 64842,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      },
+      {
+        "ticker": "HEI",
+        "name": "Heico",
+        "ev_ebitda": 29.3,
+        "mkt_cap_M": 31760,
+        "pivotal": false,
+        "private": false,
+        "is_new_v5": false
+      }
+    ]
+  }
+]

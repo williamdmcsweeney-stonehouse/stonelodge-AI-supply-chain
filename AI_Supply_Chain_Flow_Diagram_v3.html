@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Supply Chain — Interactive Flow Diagram v3</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Arial', sans-serif; background: #0f1923; color: #e8e8e6; height: 100vh; overflow: hidden; }
+
+#hdr { position: fixed; top: 0; left: 0; right: 0; height: 48px; background: #0f1923; border-bottom: 1px solid #1e3448; display: flex; align-items: center; padding: 0 20px; gap: 12px; z-index: 200; flex-wrap: wrap; }
+#hdr h1 { font-size: 13px; font-weight: bold; color: #7ec8f4; white-space: nowrap; }
+#hdr .sub { font-size: 10px; color: #4a6a8a; white-space: nowrap; }
+.tl { font-size: 9px; font-weight: bold; letter-spacing: 0.08em; text-transform: uppercase; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
+.tl-si { background:#1a3a5c; color:#7ec8f4; }
+.tl-dc { background:#0a2a1a; color:#7ef4b8; }
+.tl-pw { background:#3a1a0a; color:#f4a85c; }
+.tl-df { background:#2a1a3a; color:#c47ef4; }
+#hdr .hint { font-size: 10px; color: #3a5a7a; margin-left: auto; white-space: nowrap; }
+
+#legend { position: fixed; bottom: 10px; left: 10px; z-index: 100; background: rgba(15,25,35,0.95); border: 1px solid #1e3448; border-radius: 8px; padding: 8px 12px; font-size: 10px; }
+.leg-row { display: flex; align-items: center; gap: 5px; margin-bottom: 3px; }
+.leg-row:last-child { margin-bottom: 0; }
+.lc { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+
+#tooltip { position: fixed; z-index: 200; background: rgba(20,40,70,0.97); color: #fff; border-radius: 6px; padding: 8px 12px; font-size: 11px; pointer-events: none; display: none; max-width: 240px; line-height: 1.5; border: 1px solid #2e4a68; }
+#tooltip .tt-ticker { font-size: 14px; font-weight: bold; margin-bottom: 2px; }
+#tooltip .tt-name   { font-size: 11px; opacity: 0.8; margin-bottom: 4px; }
+#tooltip .tt-row    { display: flex; justify-content: space-between; gap: 12px; font-size: 10px; }
+#tooltip .tt-insight{ font-size: 10px; opacity: 0.75; margin-top: 4px; border-top: 1px solid rgba(255,255,255,0.15); padding-top: 4px; line-height: 1.4; }
+
+#wrap { position: fixed; top: 48px; left: 0; right: 0; bottom: 0; overflow: hidden; cursor: grab; }
+#wrap.grabbing { cursor: grabbing; }
+#scene { position: absolute; transform-origin: 0 0; }
+
+.tnode { position: absolute; width: 130px; cursor: pointer; transition: transform 0.15s; }
+.tnode:hover .tbox { border-color: #7ec8f4; box-shadow: 0 0 20px rgba(126,200,244,0.25); }
+.tnode:hover { transform: scale(1.05); z-index: 10; }
+.tnode.active .tbox { border-color: #7ec8f4; box-shadow: 0 0 24px rgba(126,200,244,0.4); }
+.tbox { background: #131f2e; border: 1.5px solid #1e3a54; border-radius: 12px; overflow: hidden; transition: border-color 0.2s, box-shadow 0.2s; }
+.tbox-img { width: 100%; height: 80px; display: flex; align-items: center; justify-content: center; }
+.tbox-body { padding: 8px 10px 10px; }
+.tbox-tid { font-size: 9px; font-weight: bold; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 2px; }
+.tbox-name { font-size: 11px; font-weight: bold; color: #e8e8e6; line-height: 1.3; }
+.tbox-count { font-size: 9px; color: #4a6a8a; margin-top: 3px; }
+
+.satnode { position: absolute; width: 100px; cursor: pointer; transition: transform 0.15s; }
+.satnode:hover .satbox { border-color: #f4a85c; }
+.satnode:hover { transform: scale(1.06); z-index: 10; }
+.satnode.active .satbox { border-color: #f4a85c; }
+.satbox { background: #1a1508; border: 1.5px solid #3a2a0a; border-radius: 10px; overflow: hidden; transition: border-color 0.2s; }
+.satbox-img { width: 100%; height: 56px; display: flex; align-items: center; justify-content: center; }
+.satbox-body { padding: 5px 8px 7px; }
+.satbox-tid { font-size: 8px; font-weight: bold; letter-spacing: 0.07em; text-transform: uppercase; color: #f4a85c; margin-bottom: 1px; }
+.satbox-name { font-size: 10px; font-weight: bold; color: #e8c88a; line-height: 1.2; }
+.satbox-count { font-size: 8px; color: #5a4a2a; margin-top: 2px; }
+
+svg#arrows { position: absolute; top: 0; left: 0; pointer-events: none; overflow: visible; }
+
+#panel { position: fixed; top: 48px; right: 0; bottom: 0; width: 320px; background: #0d1720; border-left: 1px solid #1e3448; transform: translateX(100%); transition: transform 0.3s ease; z-index: 150; display: flex; flex-direction: column; }
+#panel.open { transform: translateX(0); }
+#panel-hdr { padding: 16px 18px 12px; border-bottom: 1px solid #1e3448; flex-shrink: 0; }
+#panel-tid { font-size: 10px; font-weight: bold; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 3px; }
+#panel-name { font-size: 15px; font-weight: bold; color: #e8e8e6; margin-bottom: 4px; }
+#panel-desc { font-size: 11px; color: #5a7a9a; line-height: 1.5; }
+#panel-close { position: absolute; top: 14px; right: 14px; width: 24px; height: 24px; background: #1e3448; border: none; color: #7ec8f4; border-radius: 50%; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+#panel-close:hover { background: #2e4a68; }
+#panel-list { flex: 1; overflow-y: auto; padding: 10px 0; }
+#panel-list::-webkit-scrollbar { width: 4px; }
+#panel-list::-webkit-scrollbar-thumb { background: #1e3448; border-radius: 2px; }
+.co-row { display: flex; align-items: center; gap: 10px; padding: 8px 18px; border-bottom: 1px solid #0f1923; transition: background 0.1s; }
+.co-row:hover { background: #131f2e; }
+.co-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+.co-ticker { font-size: 12px; font-weight: bold; color: #e8e8e6; min-width: 58px; }
+.co-name { font-size: 11px; color: #5a7a9a; flex: 1; }
+.co-star { font-size: 10px; color: #BA7517; }
+.co-priv { font-size: 9px; color: #3a5a4a; padding: 1px 5px; border: 1px dashed #2a4a3a; border-radius: 10px; }
+.co-new  { font-size: 9px; color: #0F6E56; padding: 1px 5px; border: 1px solid #0F6E56; border-radius: 10px; }
+.panel-leg { padding: 10px 18px; border-top: 1px solid #1e3448; display: flex; flex-wrap: wrap; gap: 8px; flex-shrink: 0; }
+.pl { display: flex; align-items: center; gap: 4px; font-size: 9px; color: #4a6a8a; }
+.pl-dot { width: 8px; height: 8px; border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<div id="hdr">
+  <h1>AI Supply Chain — Flow Diagram v3</h1>
+  <span class="sub">Click any tier · Scroll to zoom · Drag to pan</span>
+  <span class="tl tl-si">Silicon track →</span>
+  <span class="tl tl-dc">Data center hub</span>
+  <span class="tl tl-pw">← Power &amp; grid</span>
+  <span class="tl tl-df">Defense</span>
+  <span class="hint">Apr 2026 · FactSet</span>
+</div>
+
+<div id="legend">
+  <div class="leg-row"><div class="lc" style="background:#C0DD97"></div>&lt;15x</div>
+  <div class="leg-row"><div class="lc" style="background:#FAC775"></div>15–25x</div>
+  <div class="leg-row"><div class="lc" style="background:#F09595"></div>25–35x</div>
+  <div class="leg-row"><div class="lc" style="background:#E24B4A"></div>&gt;35x</div>
+  <div class="leg-row"><div class="lc" style="background:#4a4a48"></div>N/M</div>
+  <div class="leg-row"><span style="color:#BA7517;font-size:12px">★</span>&nbsp;Pivotal</div>
+</div>
+
+<div id="tooltip">
+  <div class="tt-ticker" id="tt-ticker"></div>
+  <div class="tt-name"   id="tt-name"></div>
+  <div class="tt-row"><span>Mkt Cap</span><span id="tt-mkt" style="font-weight:bold"></span></div>
+  <div class="tt-row"><span>EV/EBITDA</span><span id="tt-ev" style="font-weight:bold"></span></div>
+  <div class="tt-insight" id="tt-insight"></div>
+</div>
+
+<div id="wrap">
+  <div id="scene"><svg id="arrows"></svg></div>
+</div>
+
+<div id="panel">
+  <button id="panel-close" onclick="closePanel()">✕</button>
+  <div id="panel-hdr">
+    <div id="panel-tid"></div>
+    <div id="panel-name"></div>
+    <div id="panel-desc"></div>
+  </div>
+  <div id="panel-list"></div>
+  <div class="panel-leg">
+    <div class="pl"><div class="pl-dot" style="background:#C0DD97"></div>&lt;15x</div>
+    <div class="pl"><div class="pl-dot" style="background:#FAC775"></div>15–25x</div>
+    <div class="pl"><div class="pl-dot" style="background:#F09595"></div>25–35x</div>
+    <div class="pl"><div class="pl-dot" style="background:#E24B4A"></div>&gt;35x</div>
+    <div class="pl"><div class="pl-dot" style="background:#4a4a48"></div>N/M</div>
+    <div class="pl"><span style="color:#BA7517">★</span>&nbsp;Pivotal</div>
+    <div class="pl"><span style="color:#0F6E56;font-size:9px">◆</span>&nbsp;New v5</div>
+  </div>
+</div>
+
+<script>
+// ── SVG ICONS ────────────────────────────────────────────────────────────
+const svgs = {
+  wafer:`<svg width="60" height="60" viewBox="0 0 60 60"><circle cx="30" cy="30" r="26" fill="none" stroke="#7ec8f4" stroke-width="1.5" opacity="0.6"/><circle cx="30" cy="30" r="18" fill="none" stroke="#7ec8f4" stroke-width="1" opacity="0.4"/><line x1="10" y1="30" x2="50" y2="30" stroke="#7ec8f4" stroke-width="0.8" opacity="0.3"/><line x1="30" y1="10" x2="30" y2="50" stroke="#7ec8f4" stroke-width="0.8" opacity="0.3"/><circle cx="30" cy="30" r="4" fill="#7ec8f4" opacity="0.5"/><circle cx="20" cy="20" r="2" fill="#7ec8f4" opacity="0.3"/><circle cx="40" cy="20" r="2" fill="#7ec8f4" opacity="0.3"/><circle cx="20" cy="40" r="2" fill="#7ec8f4" opacity="0.3"/><circle cx="40" cy="40" r="2" fill="#7ec8f4" opacity="0.3"/></svg>`,
+  litho:`<svg width="60" height="60" viewBox="0 0 60 60"><rect x="10" y="8" width="40" height="44" rx="3" fill="none" stroke="#7ec8f4" stroke-width="1.5" opacity="0.5"/><rect x="18" y="14" width="24" height="18" rx="2" fill="none" stroke="#7ec8f4" stroke-width="1" opacity="0.4"/><line x1="30" y1="32" x2="30" y2="42" stroke="#7ec8f4" stroke-width="2" opacity="0.6"/><circle cx="30" cy="44" r="3" fill="#7ec8f4" opacity="0.4"/><rect x="22" y="48" width="16" height="4" rx="1" fill="#7ec8f4" opacity="0.3"/><circle cx="30" cy="23" r="5" fill="none" stroke="#f4e87e" stroke-width="1" opacity="0.5"/><line x1="25" y1="23" x2="35" y2="23" stroke="#f4e87e" stroke-width="0.8" opacity="0.4"/><line x1="30" y1="18" x2="30" y2="28" stroke="#f4e87e" stroke-width="0.8" opacity="0.4"/></svg>`,
+  chip:`<svg width="60" height="60" viewBox="0 0 60 60"><rect x="15" y="15" width="30" height="30" rx="3" fill="#1a2a3a" stroke="#7ec8f4" stroke-width="1.5"/><rect x="20" y="20" width="20" height="20" rx="1" fill="#7ec8f4" opacity="0.15"/><line x1="15" y1="22" x2="8" y2="22" stroke="#7ec8f4" stroke-width="1.5"/><line x1="15" y1="30" x2="8" y2="30" stroke="#7ec8f4" stroke-width="1.5"/><line x1="15" y1="38" x2="8" y2="38" stroke="#7ec8f4" stroke-width="1.5"/><line x1="45" y1="22" x2="52" y2="22" stroke="#7ec8f4" stroke-width="1.5"/><line x1="45" y1="30" x2="52" y2="30" stroke="#7ec8f4" stroke-width="1.5"/><line x1="45" y1="38" x2="52" y2="38" stroke="#7ec8f4" stroke-width="1.5"/><line x1="22" y1="15" x2="22" y2="8" stroke="#7ec8f4" stroke-width="1.5"/><line x1="30" y1="15" x2="30" y2="8" stroke="#7ec8f4" stroke-width="1.5"/><line x1="38" y1="15" x2="38" y2="8" stroke="#7ec8f4" stroke-width="1.5"/><line x1="22" y1="45" x2="22" y2="52" stroke="#7ec8f4" stroke-width="1.5"/><line x1="30" y1="45" x2="30" y2="52" stroke="#7ec8f4" stroke-width="1.5"/><line x1="38" y1="45" x2="38" y2="52" stroke="#7ec8f4" stroke-width="1.5"/><text x="30" y="33" text-anchor="middle" font-size="8" fill="#7ec8f4" font-weight="bold">GPU</text></svg>`,
+  memory:`<svg width="60" height="60" viewBox="0 0 60 60"><rect x="8" y="16" width="44" height="28" rx="3" fill="none" stroke="#7ec8f4" stroke-width="1.5" opacity="0.6"/><rect x="12" y="20" width="8" height="20" rx="1" fill="#7ec8f4" opacity="0.15"/><rect x="22" y="20" width="8" height="20" rx="1" fill="#7ec8f4" opacity="0.15"/><rect x="32" y="20" width="8" height="20" rx="1" fill="#7ec8f4" opacity="0.15"/><rect x="42" y="20" width="6" height="20" rx="1" fill="#7ec8f4" opacity="0.15"/><line x1="14" y1="14" x2="14" y2="8" stroke="#7ec8f4" stroke-width="1.5" opacity="0.5"/><line x1="20" y1="14" x2="20" y2="8" stroke="#7ec8f4" stroke-width="1.5" opacity="0.5"/><line x1="26" y1="14" x2="26" y2="8" stroke="#7ec8f4" stroke-width="1.5" opacity="0.5"/><line x1="32" y1="14" x2="32" y2="8" stroke="#7ec8f4" stroke-width="1.5" opacity="0.5"/><line x1="38" y1="14" x2="38" y2="8" stroke="#7ec8f4" stroke-width="1.5" opacity="0.5"/><line x1="44" y1="14" x2="44" y2="8" stroke="#7ec8f4" stroke-width="1.5" opacity="0.5"/><line x1="14" y1="46" x2="14" y2="52" stroke="#7ec8f4" stroke-width="1.5" opacity="0.5"/><line x1="20" y1="46" x2="20" y2="52" stroke="#7ec8f4" stroke-width="1.5" opacity="0.5"/><line x1="26" y1="46" x2="26" y2="52" stroke="#7ec8f4" stroke-width="1.5" opacity="0.5"/><line x1="32" y1="46" x2="32" y2="52" stroke="#7ec8f4" stroke-width="1.5" opacity="0.5"/><line x1="38" y1="46" x2="38" y2="52" stroke="#7ec8f4" stroke-width="1.5" opacity="0.5"/><line x1="44" y1="46" x2="44" y2="52" stroke="#7ec8f4" stroke-width="1.5" opacity="0.5"/><text x="30" y="33" text-anchor="middle" font-size="7" fill="#7ec8f4" opacity="0.8">HBM</text></svg>`,
+  server:`<svg width="60" height="60" viewBox="0 0 60 60"><rect x="8" y="10" width="44" height="10" rx="2" fill="none" stroke="#7ec8f4" stroke-width="1.2" opacity="0.6"/><rect x="8" y="24" width="44" height="10" rx="2" fill="none" stroke="#7ec8f4" stroke-width="1.2" opacity="0.6"/><rect x="8" y="38" width="44" height="10" rx="2" fill="none" stroke="#7ec8f4" stroke-width="1.2" opacity="0.6"/><circle cx="45" cy="15" r="2.5" fill="#7ef4b8" opacity="0.7"/><circle cx="45" cy="29" r="2.5" fill="#7ef4b8" opacity="0.7"/><circle cx="45" cy="43" r="2.5" fill="#4a4aff" opacity="0.7"/><rect x="12" y="13" width="24" height="4" rx="1" fill="#7ec8f4" opacity="0.15"/><rect x="12" y="27" width="24" height="4" rx="1" fill="#7ec8f4" opacity="0.15"/><rect x="12" y="41" width="24" height="4" rx="1" fill="#7ec8f4" opacity="0.15"/></svg>`,
+  cloud:`<svg width="60" height="60" viewBox="0 0 60 60"><path d="M44,38 a10,10 0 0,0 -2,-20 a1,1 0 0,0 -1,0 a14,12 0 0,0 -26,4 a9,9 0 0,0 2,18 z" fill="none" stroke="#7ec8f4" stroke-width="1.5" opacity="0.5"/><line x1="22" y1="44" x2="22" y2="52" stroke="#7ec8f4" stroke-width="1" opacity="0.3"/><line x1="30" y1="44" x2="30" y2="52" stroke="#7ec8f4" stroke-width="1" opacity="0.3"/><line x1="38" y1="44" x2="38" y2="52" stroke="#7ec8f4" stroke-width="1" opacity="0.3"/><text x="30" y="34" text-anchor="middle" font-size="7" fill="#7ec8f4" opacity="0.7">CLOUD AI</text></svg>`,
+  datacenter:`<svg width="60" height="60" viewBox="0 0 60 60"><rect x="6" y="14" width="48" height="36" rx="3" fill="none" stroke="#7ef4b8" stroke-width="1.5" opacity="0.6"/><rect x="10" y="18" width="16" height="28" rx="1" fill="none" stroke="#7ef4b8" stroke-width="1" opacity="0.3"/><rect x="28" y="18" width="22" height="28" rx="1" fill="none" stroke="#7ef4b8" stroke-width="1" opacity="0.3"/><line x1="12" y1="22" x2="24" y2="22" stroke="#7ef4b8" stroke-width="0.8" opacity="0.4"/><line x1="12" y1="27" x2="24" y2="27" stroke="#7ef4b8" stroke-width="0.8" opacity="0.4"/><line x1="12" y1="32" x2="24" y2="32" stroke="#7ef4b8" stroke-width="0.8" opacity="0.4"/><rect x="30" y="20" width="6" height="6" rx="1" fill="#7ef4b8" opacity="0.2"/><rect x="38" y="20" width="6" height="6" rx="1" fill="#7ef4b8" opacity="0.2"/><rect x="30" y="29" width="6" height="6" rx="1" fill="#7ef4b8" opacity="0.2"/><rect x="38" y="29" width="6" height="6" rx="1" fill="#7ef4b8" opacity="0.2"/><rect x="6" y="10" width="48" height="4" rx="1" fill="#7ef4b8" opacity="0.15"/></svg>`,
+  cooling:`<svg width="60" height="60" viewBox="0 0 60 60"><rect x="12" y="12" width="36" height="36" rx="4" fill="none" stroke="#7ec8f4" stroke-width="1.5" opacity="0.5"/><line x1="30" y1="4" x2="30" y2="56" stroke="#7ec8f4" stroke-width="1" opacity="0.2"/><line x1="4" y1="30" x2="56" y2="30" stroke="#7ec8f4" stroke-width="1" opacity="0.2"/><path d="M30,14 L34,22 L30,20 L26,22 Z" fill="#7ec8f4" opacity="0.4"/><path d="M30,46 L34,38 L30,40 L26,38 Z" fill="#7ec8f4" opacity="0.4"/><path d="M14,30 L22,26 L20,30 L22,34 Z" fill="#7ec8f4" opacity="0.4"/><path d="M46,30 L38,26 L40,30 L38,34 Z" fill="#7ec8f4" opacity="0.4"/><circle cx="30" cy="30" r="6" fill="none" stroke="#7ec8f4" stroke-width="1.5" opacity="0.6"/><circle cx="30" cy="30" r="2" fill="#7ec8f4" opacity="0.5"/></svg>`,
+  generator:`<svg width="50" height="50" viewBox="0 0 50 50"><rect x="8" y="18" width="34" height="22" rx="3" fill="none" stroke="#f4a85c" stroke-width="1.5" opacity="0.6"/><circle cx="25" cy="29" r="7" fill="none" stroke="#f4a85c" stroke-width="1.2" opacity="0.5"/><line x1="25" y1="22" x2="25" y2="18" stroke="#f4a85c" stroke-width="1.5" opacity="0.5"/><line x1="12" y1="29" x2="8" y2="29" stroke="#f4a85c" stroke-width="1.5" opacity="0.5"/><line x1="38" y1="29" x2="42" y2="29" stroke="#f4a85c" stroke-width="1.5" opacity="0.5"/><circle cx="25" cy="29" r="3" fill="#f4a85c" opacity="0.3"/><rect x="14" y="10" width="6" height="8" rx="1" fill="#f4a85c" opacity="0.2"/><rect x="30" y="10" width="6" height="8" rx="1" fill="#f4a85c" opacity="0.2"/></svg>`,
+  powerplant:`<svg width="60" height="60" viewBox="0 0 60 60"><rect x="8" y="30" width="44" height="22" rx="2" fill="none" stroke="#f4a85c" stroke-width="1.5" opacity="0.5"/><rect x="16" y="20" width="10" height="10" rx="1" fill="none" stroke="#f4a85c" stroke-width="1" opacity="0.4"/><rect x="34" y="20" width="10" height="10" rx="1" fill="none" stroke="#f4a85c" stroke-width="1" opacity="0.4"/><path d="M20,20 C20,10 24,6 24,6 C24,6 28,10 28,20" fill="none" stroke="#f4a85c" stroke-width="1" opacity="0.5"/><path d="M36,20 C36,10 40,6 40,6 C40,6 44,10 44,20" fill="none" stroke="#f4a85c" stroke-width="1" opacity="0.5"/><line x1="8" y1="38" x2="52" y2="38" stroke="#f4a85c" stroke-width="0.8" opacity="0.3"/><rect x="22" y="40" width="16" height="12" rx="1" fill="#f4a85c" opacity="0.15"/><path d="M30,44 L33,48 L30,47 L27,48 Z" fill="#f4a85c" opacity="0.5"/></svg>`,
+  turbineblade:`<svg width="50" height="50" viewBox="0 0 50 50"><path d="M25,8 C28,8 32,16 30,25 C28,34 20,38 18,36 C16,34 20,26 22,20 C24,14 22,8 25,8 Z" fill="none" stroke="#f4a85c" stroke-width="1.5" opacity="0.6"/><path d="M42,25 C42,28 34,32 25,30 C16,28 12,20 14,18 C16,16 24,20 30,22 C36,24 42,22 42,25 Z" fill="none" stroke="#f4a85c" stroke-width="1.5" opacity="0.6"/><path d="M8,25 C8,22 16,18 25,20 C34,22 38,30 36,32 C34,34 26,30 20,28 C14,26 8,28 8,25 Z" fill="none" stroke="#f4a85c" stroke-width="1.5" opacity="0.6"/><circle cx="25" cy="25" r="4" fill="#f4a85c" opacity="0.4"/></svg>`,
+  pipeline:`<svg width="50" height="50" viewBox="0 0 50 50"><path d="M6,18 Q25,14 44,18" fill="none" stroke="#f4a85c" stroke-width="6" stroke-linecap="round" opacity="0.25"/><path d="M6,18 Q25,14 44,18" fill="none" stroke="#f4a85c" stroke-width="3" stroke-linecap="round" opacity="0.5"/><path d="M6,32 Q25,28 44,32" fill="none" stroke="#f4a85c" stroke-width="6" stroke-linecap="round" opacity="0.25"/><path d="M6,32 Q25,28 44,32" fill="none" stroke="#f4a85c" stroke-width="3" stroke-linecap="round" opacity="0.5"/><line x1="6" y1="18" x2="6" y2="32" stroke="#f4a85c" stroke-width="3" opacity="0.5"/><line x1="44" y1="18" x2="44" y2="32" stroke="#f4a85c" stroke-width="3" opacity="0.5"/><circle cx="12" cy="25" r="3" fill="#f4a85c" opacity="0.4"/><circle cx="25" cy="23" r="3" fill="#f4a85c" opacity="0.4"/><circle cx="38" cy="25" r="3" fill="#f4a85c" opacity="0.4"/></svg>`,
+  solar:`<svg width="50" height="50" viewBox="0 0 50 50"><circle cx="25" cy="20" r="8" fill="none" stroke="#f4d85c" stroke-width="1.5" opacity="0.6"/><line x1="25" y1="6" x2="25" y2="10" stroke="#f4d85c" stroke-width="1.5" opacity="0.5"/><line x1="25" y1="30" x2="25" y2="34" stroke="#f4d85c" stroke-width="1.5" opacity="0.5"/><line x1="11" y1="20" x2="15" y2="20" stroke="#f4d85c" stroke-width="1.5" opacity="0.5"/><line x1="35" y1="20" x2="39" y2="20" stroke="#f4d85c" stroke-width="1.5" opacity="0.5"/><line x1="15" y1="10" x2="18" y2="13" stroke="#f4d85c" stroke-width="1.2" opacity="0.4"/><line x1="35" y1="10" x2="32" y2="13" stroke="#f4d85c" stroke-width="1.2" opacity="0.4"/><path d="M8,42 L12,34 L22,34 L26,42 Z" fill="none" stroke="#f4d85c" stroke-width="1" opacity="0.4"/><path d="M24,42 L28,34 L38,34 L42,42 Z" fill="none" stroke="#f4d85c" stroke-width="1" opacity="0.4"/></svg>`,
+  transformer:`<svg width="60" height="60" viewBox="0 0 60 60"><rect x="12" y="16" width="36" height="28" rx="3" fill="none" stroke="#f4a85c" stroke-width="1.5" opacity="0.5"/><circle cx="22" cy="30" r="8" fill="none" stroke="#f4a85c" stroke-width="1.2" opacity="0.5"/><circle cx="38" cy="30" r="8" fill="none" stroke="#f4a85c" stroke-width="1.2" opacity="0.5"/><line x1="22" y1="16" x2="22" y2="8" stroke="#f4a85c" stroke-width="2" opacity="0.5"/><line x1="38" y1="16" x2="38" y2="8" stroke="#f4a85c" stroke-width="2" opacity="0.5"/><line x1="22" y1="44" x2="22" y2="52" stroke="#f4a85c" stroke-width="2" opacity="0.5"/><line x1="38" y1="44" x2="38" y2="52" stroke="#f4a85c" stroke-width="2" opacity="0.5"/><path d="M18,28 Q22,24 26,28 Q22,32 18,28" fill="#f4a85c" opacity="0.15"/><path d="M34,28 Q38,24 42,28 Q38,32 34,28" fill="#f4a85c" opacity="0.15"/></svg>`,
+  tower:`<svg width="60" height="60" viewBox="0 0 60 60"><line x1="30" y1="4" x2="16" y2="56" stroke="#f4a85c" stroke-width="1.5" opacity="0.6"/><line x1="30" y1="4" x2="44" y2="56" stroke="#f4a85c" stroke-width="1.5" opacity="0.6"/><line x1="20" y1="22" x2="40" y2="22" stroke="#f4a85c" stroke-width="1.2" opacity="0.5"/><line x1="17" y1="36" x2="43" y2="36" stroke="#f4a85c" stroke-width="1.2" opacity="0.5"/><line x1="14" y1="50" x2="46" y2="50" stroke="#f4a85c" stroke-width="1.2" opacity="0.5"/><line x1="20" y1="22" x2="30" y2="4" stroke="#f4a85c" stroke-width="0.8" opacity="0.3"/><line x1="40" y1="22" x2="30" y2="4" stroke="#f4a85c" stroke-width="0.8" opacity="0.3"/><line x1="6" y1="30" x2="20" y2="22" stroke="#7ef4b8" stroke-width="1.5" opacity="0.4"/><line x1="54" y1="30" x2="40" y2="22" stroke="#7ef4b8" stroke-width="1.5" opacity="0.4"/></svg>`,
+  galvanize:`<svg width="60" height="60" viewBox="0 0 60 60"><rect x="8" y="22" width="44" height="20" rx="3" fill="none" stroke="#f4a85c" stroke-width="1.5" opacity="0.5"/><line x1="12" y1="22" x2="12" y2="42" stroke="#f4a85c" stroke-width="1" opacity="0.3"/><line x1="20" y1="22" x2="20" y2="42" stroke="#f4a85c" stroke-width="1" opacity="0.3"/><line x1="28" y1="22" x2="28" y2="42" stroke="#f4a85c" stroke-width="1" opacity="0.3"/><line x1="36" y1="22" x2="36" y2="42" stroke="#f4a85c" stroke-width="1" opacity="0.3"/><line x1="44" y1="22" x2="44" y2="42" stroke="#f4a85c" stroke-width="1" opacity="0.3"/><rect x="18" y="8" width="24" height="14" rx="2" fill="none" stroke="#f4a85c" stroke-width="1" opacity="0.4"/><line x1="24" y1="8" x2="20" y2="4" stroke="#f4a85c" stroke-width="1" opacity="0.4"/><line x1="36" y1="8" x2="40" y2="4" stroke="#f4a85c" stroke-width="1" opacity="0.4"/><text x="30" y="36" text-anchor="middle" font-size="7" fill="#f4a85c" opacity="0.6">Zn</text></svg>`,
+  linehardware:`<svg width="60" height="60" viewBox="0 0 60 60"><line x1="4" y1="20" x2="56" y2="20" stroke="#f4a85c" stroke-width="2" opacity="0.5"/><line x1="4" y1="30" x2="56" y2="30" stroke="#f4a85c" stroke-width="2" opacity="0.5"/><circle cx="15" cy="20" r="4" fill="none" stroke="#f4a85c" stroke-width="1.5" opacity="0.6"/><circle cx="30" cy="20" r="4" fill="none" stroke="#f4a85c" stroke-width="1.5" opacity="0.6"/><circle cx="45" cy="20" r="4" fill="none" stroke="#f4a85c" stroke-width="1.5" opacity="0.6"/><circle cx="15" cy="30" r="4" fill="none" stroke="#f4a85c" stroke-width="1.5" opacity="0.6"/><circle cx="30" cy="30" r="4" fill="none" stroke="#f4a85c" stroke-width="1.5" opacity="0.6"/><circle cx="45" cy="30" r="4" fill="none" stroke="#f4a85c" stroke-width="1.5" opacity="0.6"/><line x1="30" y1="16" x2="30" y2="8" stroke="#f4a85c" stroke-width="1" opacity="0.4"/><line x1="30" y1="34" x2="30" y2="42" stroke="#f4a85c" stroke-width="1" opacity="0.4"/><rect x="22" y="44" width="16" height="8" rx="1" fill="none" stroke="#f4a85c" stroke-width="1" opacity="0.3"/></svg>`,
+  submarine:`<svg width="60" height="60" viewBox="0 0 60 60"><path d="M10,30 Q10,20 20,20 L44,20 Q54,20 54,30 Q54,40 44,40 L20,40 Q10,40 10,30 Z" fill="none" stroke="#c47ef4" stroke-width="1.5" opacity="0.6"/><rect x="28" y="14" width="8" height="6" rx="1" fill="none" stroke="#c47ef4" stroke-width="1" opacity="0.5"/><line x1="32" y1="10" x2="32" y2="14" stroke="#c47ef4" stroke-width="1" opacity="0.4"/><line x1="54" y1="30" x2="58" y2="28" stroke="#c47ef4" stroke-width="1.5" opacity="0.4"/><line x1="54" y1="30" x2="58" y2="32" stroke="#c47ef4" stroke-width="1.5" opacity="0.4"/><circle cx="20" cy="30" r="4" fill="none" stroke="#c47ef4" stroke-width="1" opacity="0.4"/><line x1="10" y1="30" x2="4" y2="30" stroke="#c47ef4" stroke-width="1.5" opacity="0.3"/></svg>`,
+};
+
+// ── TIER DATA (v5 — all companies from valuation grid v5) ─────────────────
+const tiers = [
+  {id:'T1', name:'Raw Materials', fullName:'Raw Materials & Specialty Chemicals', img:'wafer', track:'silicon',
+   color:'#7ec8f4', accent:'#1a3a5c',
+   desc:'Silicon wafers, process gases, photoresist, CMP slurries — the feedstocks every chip depends on. No substitute exists for any of these at scale.',
+   companies:[
+    {t:'SHECY',n:'Shin-Etsu Chemical',ev:null,mkt:84226},
+    {t:'SUMCO',n:'SUMCO Corp',ev:9.0,mkt:4900,isnew:true},
+    {t:'ENTG',n:'Entegris',ev:28.6,mkt:23748},
+    {t:'APD',n:'Air Products',ev:16.0,mkt:67189},
+    {t:'LIN',n:'Linde',ev:18.8,mkt:236470},
+    {t:'AIQUY',n:'Air Liquide',ev:13.7,mkt:127731},
+    {t:'MKKGY',n:'Merck KGaA',ev:10.2,mkt:16929},
+    {t:'ALB',n:'Albemarle',ev:11.2,mkt:22194},
+    {t:'MTLHY',n:'Mitsubishi Chemical',ev:null,mkt:8236},
+    {t:'CCMP',n:'CMC Materials',ev:null,mkt:null,priv:true},
+    {t:'JSRCY',n:'JSR Corp',ev:null,mkt:null,priv:true},
+  ]},
+  {id:'T2', name:'Semicon Equipment & Test', fullName:'Semiconductor Manufacturing Equipment & Test', img:'litho', track:'silicon',
+   color:'#7ec8f4', accent:'#1a3a5c',
+   desc:'Tools that pattern silicon + EMC test chambers every AI chip must pass through before shipping. ACLS dominates SiC ion implant. AEIS powers the tools. CAMT and NVMI inspect every advanced packaging step. ESE/ETS-Lindgren certifies every AI chip.',
+   companies:[
+    {t:'ASML',n:'ASML',ev:30.8,mkt:567775},
+    {t:'AMAT',n:'Applied Materials',ev:32.2,mkt:330967},
+    {t:'LRCX',n:'Lam Research',ev:39.2,mkt:334878},
+    {t:'KLAC',n:'KLA Corporation',ev:42.1,mkt:253633},
+    {t:'TOELY',n:'Tokyo Electron',ev:24.4,mkt:135572},
+    {t:'ACLS',n:'Axcelis',ev:35.3,mkt:4398,star:true},
+    {t:'IPGP',n:'IPG Photonics',ev:26.8,mkt:5286},
+    {t:'ATEYY',n:'Advantest',ev:29.0,mkt:135106},
+    {t:'ONTO',n:'Onto Innovation',ev:33.3,mkt:15314},
+    {t:'TER',n:'Teradyne',ev:49.6,mkt:65453},
+    {t:'VECO',n:'Veeco',ev:25.8,mkt:3124},
+    {t:'COHU',n:'Cohu',ev:33.7,mkt:2205},
+    {t:'KEYS',n:'Keysight',ev:31.3,mkt:59500,isnew:true},
+    {t:'AEIS',n:'Advanced Energy',ev:32.4,mkt:14726,isnew:true},
+    {t:'CAMT',n:'Camtek',ev:60.5,mkt:9303,isnew:true},
+    {t:'NVMI',n:'Nova Ltd.',ev:47.2,mkt:17257,isnew:true},
+    {t:'ESE',n:'ESCO / ETS-Lindgren',ev:26.1,mkt:8284,star:true,isnew:true},
+  ]},
+  {id:'T3', name:'Chip Design & EDA', fullName:'Chip Design, EDA & IP Licensing', img:'chip', track:'silicon',
+   color:'#7ec8f4', accent:'#185FA5',
+   desc:'NVIDIA owns AI training. ARM licenses the instruction set on virtually every inference chip. MPWR makes the power management ICs on NVIDIA GPU boards. ADI and TXN add broad analog/industrial coverage. ON Semiconductor bridges the silicon stack and the power grid via SiC.',
+   companies:[
+    {t:'NVDA',n:'NVIDIA',ev:20.8,mkt:5060961},
+    {t:'AMD',n:'AMD',ev:48.2,mkt:567048},
+    {t:'AVGO',n:'Broadcom',ev:30.1,mkt:2001628},
+    {t:'MRVL',n:'Marvell',ev:33.8,mkt:143682},
+    {t:'INTC',n:'Intel',ev:22.8,mkt:414434},
+    {t:'QCOM',n:'Qualcomm',ev:10.7,mkt:158823},
+    {t:'ARM',n:'ARM Holdings',ev:68.8,mkt:249133},
+    {t:'CDNS',n:'Cadence',ev:32.0,mkt:91908},
+    {t:'SNPS',n:'Synopsys',ev:27.2,mkt:95938},
+    {t:'ADI',n:'Analog Devices',ev:23.6,mkt:195072,isnew:true},
+    {t:'TXN',n:'Texas Instruments',ev:24.5,mkt:252326,isnew:true},
+    {t:'MPWR',n:'Monolithic Power',ev:64.4,mkt:80164,star:true,isnew:true},
+    {t:'NXPI',n:'NXP Semiconductors',ev:13.3,mkt:61667,isnew:true},
+    {t:'MCHP',n:'Microchip Technology',ev:22.1,mkt:48399,isnew:true},
+    {t:'ON',n:'ON Semiconductor',ev:21.2,mkt:38703,isnew:true},
+    {t:'SMTC',n:'Semtech',ev:36.3,mkt:10205,isnew:true},
+    {t:'CBRS',n:'Cerebras',ev:null,mkt:null,priv:true},
+  ]},
+  {id:'T4', name:'Foundries, Memory & Packaging', fullName:'Chip Fabrication, Memory & Advanced Packaging', img:'memory', track:'silicon',
+   color:'#7ec8f4', accent:'#185FA5',
+   desc:'TSMC makes ~90% of leading-edge AI chips. Samsung and SK Hynix make the HBM memory stacked on every NVIDIA GPU — HBM is the AI-critical memory. WDC, SNDK, and STX serve AI training data storage. Samsung at 4.1x prices in a deep trough.',
+   companies:[
+    {t:'TSM',n:'TSMC',ev:14.6,mkt:1800440},
+    {t:'SSNLF',n:'Samsung',ev:4.1,mkt:949081},
+    {t:'SK Hynix',n:'SK Hynix',ev:null,mkt:null},
+    {t:'MU',n:'Micron Technology',ev:6.7,mkt:560168},
+    {t:'WDC',n:'Western Digital',ev:33.1,mkt:136971,isnew:true},
+    {t:'SNDK',n:'SanDisk',ev:18.6,mkt:146110,isnew:true},
+    {t:'STX',n:'Seagate',ev:34.1,mkt:127845,isnew:true},
+    {t:'RMBS',n:'Rambus',ev:40.7,mkt:17132,isnew:true},
+    {t:'GFS',n:'GlobalFoundries',ev:14.2,mkt:34381},
+    {t:'ASX',n:'ASE Technology',ev:14.6,mkt:70304},
+    {t:'AMKR',n:'Amkor',ev:14.4,mkt:19354},
+    {t:'KLIC',n:'Kulicke & Soffa',ev:25.4,mkt:4590},
+  ]},
+  {id:'T5', name:'Servers, Networking & Interconnect', fullName:'AI Servers, Networking & Interconnect', img:'server', track:'silicon',
+   color:'#7ec8f4', accent:'#533AB7',
+   desc:'Hardware turning chips into working AI clusters. ALAB (115% revenue growth, pure-play AI connectivity) and CRDO (active electrical cables for AI racks) are the most AI-specific names. Arista dominates data center networking. MTSI serves the 800G/1.6T optical buildout.',
+   companies:[
+    {t:'SMCI',n:'Super Micro',ev:10.8,mkt:17419},
+    {t:'DELL',n:'Dell',ev:11.7,mkt:70371},
+    {t:'HPE',n:'HPE',ev:7.8,mkt:37364},
+    {t:'ANET',n:'Arista Networks',ev:39.6,mkt:222760},
+    {t:'CSCO',n:'Cisco',ev:15.5,mkt:351580},
+    {t:'COHR',n:'Coherent',ev:41.2,mkt:65628},
+    {t:'FN',n:'Fabrinet',ev:44.6,mkt:25802},
+    {t:'LITE',n:'Lumentum',ev:83.6,mkt:62949},
+    {t:'CLS',n:'Celestica',ev:21.8,mkt:47126},
+    {t:'APH',n:'Amphenol',ev:20.5,mkt:184058},
+    {t:'TEL',n:'TE Connectivity',ev:13.0,mkt:62992},
+    {t:'HNHPF',n:'Foxconn',ev:7.1,mkt:98558},
+    {t:'WCC',n:'Wesco Intl',ev:12.7,mkt:15410},
+    {t:'FERG',n:'Ferguson',ev:16.9,mkt:51240},
+    {t:'ALAB',n:'Astera Labs',ev:77.3,mkt:36228,star:true,isnew:true},
+    {t:'CRDO',n:'Credo Technology',ev:57.1,mkt:35975,isnew:true},
+    {t:'MTSI',n:'MACOM Technology',ev:57.3,mkt:21576,isnew:true},
+    {t:'SMTC',n:'Semtech',ev:36.3,mkt:10205,isnew:true},
+  ]},
+  {id:'T6', name:'Hyperscalers & Cloud', fullName:'Hyperscalers, Cloud & AI Inference Platforms', img:'cloud', track:'silicon',
+   color:'#7ec8f4', accent:'#533AB7',
+   desc:'Collectively spending $650B+ on AI infrastructure in 2026. DOCN is the SMB inference cloud — $120M AI ARR growing fast. The four mega-caps trade 12–19x despite being the ultimate AI demand engines.',
+   companies:[
+    {t:'MSFT',n:'Microsoft',ev:16.3,mkt:3153071},
+    {t:'AMZN',n:'Amazon',ev:14.2,mkt:2839015},
+    {t:'GOOGL',n:'Alphabet',ev:18.8,mkt:3866633},
+    {t:'META',n:'Meta',ev:12.2,mkt:1482397},
+    {t:'ORCL',n:'Oracle',ev:17.1,mkt:498361},
+    {t:'CRWV',n:'CoreWeave',ev:11.0,mkt:46152},
+    {t:'DOCN',n:'DigitalOcean',ev:28.3,mkt:9748},
+    {t:'OpenAI',n:'OpenAI',ev:null,mkt:null,priv:true},
+    {t:'Anthropic',n:'Anthropic',ev:null,mkt:null,priv:true},
+    {t:'xAI',n:'xAI',ev:null,mkt:null,priv:true},
+    {t:'Lambda',n:'Lambda Labs',ev:null,mkt:null,priv:true},
+  ]},
+  {id:'T7', name:'DC Real Estate & Build', fullName:'Data Center Real Estate & Construction', img:'datacenter', track:'dc',
+   color:'#7ef4b8', accent:'#0a2a1a',
+   desc:'REITs own the space; contractors build it. Comfort Systems (FIX) installs MEP inside every data center — $11.9B backlog locks in the AI capex cycle 18–24 months forward.',
+   companies:[
+    {t:'EQIX',n:'Equinix',ev:24.7,mkt:109350},
+    {t:'DLR',n:'Digital Realty',ev:24.6,mkt:68723},
+    {t:'IRM',n:'Iron Mountain',ev:18.7,mkt:34516},
+    {t:'FIX',n:'Comfort Systems USA',ev:30.5,mkt:60764,star:true},
+    {t:'EME',n:'EMCOR Group',ev:20.4,mkt:38739},
+    {t:'PWR',n:'Quanta Services',ev:29.5,mkt:93488},
+    {t:'MYRG',n:'MYR Group',ev:19.0,mkt:5272},
+    {t:'ACM',n:'AECOM',ev:10.0,mkt:10391},
+    {t:'SKBSY',n:'Skanska',ev:null,mkt:10854},
+    {t:'BLD',n:'TopBuild',ev:14.8,mkt:12714},
+    {t:'Turner',n:'Turner Construction',ev:null,mkt:null,priv:true},
+  ]},
+  {id:'T8', name:'Cooling & Power Dist.', fullName:'Data Center Cooling & Power Distribution', img:'cooling', track:'dc',
+   color:'#7ef4b8', accent:'#0a2a1a',
+   desc:'Keeping AI chips cool is the defining engineering challenge. Vertiv is the dominant pure-play at 37.5x. Hubbell (★) serves both chip cooling PDUs and the grid — a rare dual-tier player.',
+   companies:[
+    {t:'VRT',n:'Vertiv',ev:37.5,mkt:124244},
+    {t:'ETN',n:'Eaton',ev:23.4,mkt:164475},
+    {t:'SBGSY',n:'Schneider Electric',ev:18.8,mkt:186460},
+    {t:'HUBB',n:'Hubbell',ev:20.0,mkt:29326,star:true},
+    {t:'MOD',n:'Modine',ev:25.8,mkt:13272},
+    {t:'NVT',n:'nVent Electric',ev:23.4,mkt:22989},
+    {t:'EMR',n:'Emerson',ev:17.0,mkt:79481},
+    {t:'TT',n:'Trane Technologies',ev:23.9,mkt:107660},
+    {t:'CoolIT',n:'CoolIT Systems',ev:null,mkt:null,priv:true},
+    {t:'Submer',n:'Submer',ev:null,mkt:null,priv:true},
+    {t:'LiqStk',n:'LiquidStack',ev:null,mkt:null,priv:true},
+  ]},
+  {id:'T9', name:'On-site Power & Backup', fullName:'On-Site Power & Backup Generation', img:'generator', track:'power',
+   color:'#f4a85c', accent:'#3a1a0a',
+   desc:'Data centers cannot rely solely on the grid. Bloom Energy fuel cells, Caterpillar generators, and emerging SMRs provide firm on-site power.',
+   companies:[
+    {t:'BE',n:'Bloom Energy',ev:106.7,mkt:65285},
+    {t:'CAT',n:'Caterpillar',ev:27.3,mkt:386556},
+    {t:'CMI',n:'Cummins',ev:15.3,mkt:91293},
+    {t:'GNRC',n:'Generac',ev:15.8,mkt:12963},
+    {t:'SMR',n:'NuScale Power',ev:null,mkt:3872},
+    {t:'OKLO',n:'Oklo',ev:null,mkt:12323},
+    {t:'PLUG',n:'Plug Power',ev:null,mkt:4377},
+    {t:'ENS',n:'EnerSys',ev:12.1,mkt:7713},
+    {t:'FLNC',n:'Fluence Energy',ev:36.1,mkt:1772},
+    {t:'Kairos',n:'Kairos Power',ev:null,mkt:null,priv:true},
+  ]},
+  {id:'T10a', name:'Dispatchable Power', fullName:'Grid-Scale Dispatchable Power — Nuclear & Gas', img:'powerplant', track:'power',
+   color:'#f4a85c', accent:'#3a1a0a',
+   desc:'DISPATCHABLE — firm always-on power. Nuclear and gas are the only technologies reliable enough for AI data centers at scale. Gas turbine backlogs 4–5 years. GEV at 50.4x reflects acute supply scarcity.',
+   companies:[
+    {t:'CEG',n:'Constellation Energy',ev:12.0,mkt:113590},
+    {t:'VST',n:'Vistra Energy',ev:10.7,mkt:55641},
+    {t:'TLN',n:'Talen Energy',ev:10.9,mkt:16538},
+    {t:'GEV',n:'GE Vernova',ev:50.4,mkt:308810,star:true},
+    {t:'SMNEY',n:'Siemens Energy',ev:24.2,mkt:189123,star:true},
+  ]},
+  {id:'T10b', name:'Turbine Components', fullName:'Gas Turbine Components — Hot Section Bottleneck', img:'turbineblade', track:'power', sat:true,
+   color:'#f4a85c', accent:'#7a2e14',
+   desc:'BOTTLENECK — single-crystal nickel blades above the melting point of steel. Only Howmet and Precision Castparts make them at scale. Bodycote heat-treats every component at just 7.2x.',
+   companies:[
+    {t:'HWM',n:'Howmet Aerospace',ev:35.2,mkt:97149,star:true,isnew:true},
+    {t:'BOY',n:'Bodycote',ev:7.2,mkt:1614,star:true,isnew:true},
+    {t:'WWD',n:'Woodward',ev:26.9,mkt:21757,isnew:true},
+    {t:'PCC',n:'Precision Castparts',ev:null,mkt:null,priv:true},
+  ]},
+  {id:'T10c', name:'Gas Delivery', fullName:'Natural Gas Delivery — Fuel to the Turbines', img:'pipeline', track:'power', sat:true,
+   color:'#f4a85c', accent:'#7a2e14',
+   desc:'ESSENTIAL ENABLER — gas turbines need gas. Pipeline capacity and compression to new power sites is the binding constraint on running new turbines. AROC is the SMID name at 10x.',
+   companies:[
+    {t:'KMI',n:'Kinder Morgan',ev:11.8,mkt:70616,isnew:true},
+    {t:'WMB',n:'Williams Companies',ev:14.4,mkt:88266,isnew:true},
+    {t:'AROC',n:'Archrock',ev:10.0,mkt:6542,star:true,isnew:true},
+  ]},
+  {id:'T10d', name:'Renewables', fullName:'Grid-Scale Renewables — Intermittent', img:'solar', track:'power', sat:true,
+   color:'#f4d85c', accent:'#2a1a04',
+   desc:'INTERMITTENT — generates when weather allows. Hyperscalers use renewable PPAs for carbon commitments but need firm dispatchable power for reliability.',
+   companies:[
+    {t:'NEE',n:'NextEra Energy',ev:16.5,mkt:198691},
+    {t:'AES',n:'AES Corp',ev:15.2,mkt:10332},
+    {t:'BEP',n:'Brookfield Renewable',ev:25.1,mkt:10441},
+    {t:'FSLR',n:'First Solar',ev:7.2,mkt:20820},
+    {t:'SHLS',n:'Shoals Technologies',ev:12.9,mkt:1330},
+  ]},
+  {id:'T11', name:'Transformers & Switchgear', fullName:'Transmission & Substation Equipment', img:'transformer', track:'power',
+   color:'#f4a85c', accent:'#3a1a0a',
+   desc:'TRANSFORMER CRISIS — 3–5 year lead times, US imports 80% of large transformers. SPXC and POWL are SMID names in the bottleneck. ESE/Doble tests every transformer before it goes live. CLF makes the grain-oriented electrical steel every transformer core requires.',
+   companies:[
+    {t:'HUBB',n:'Hubbell',ev:20.0,mkt:29326,star:true},
+    {t:'ETN',n:'Eaton',ev:23.4,mkt:164475},
+    {t:'ABB',n:'ABB',ev:22.3,mkt:180646},
+    {t:'SIEGY',n:'Siemens',ev:15.9,mkt:222536},
+    {t:'HTHIY',n:'Hitachi Energy',ev:12.2,mkt:148688},
+    {t:'SPXC',n:'SPX Technologies',ev:18.1,mkt:11180,star:true},
+    {t:'ESE',n:'ESCO Tech / Doble',ev:26.1,mkt:8284,star:true},
+    {t:'POWL',n:'Powell Industries',ev:34.5,mkt:9207,star:true},
+    {t:'ROP',n:'Roper Technologies',ev:14.0,mkt:36179},
+    {t:'CLF',n:'Cleveland-Cliffs (GOES)',ev:10.7,mkt:5567,star:true,isnew:true},
+    {t:'WTS',n:'Watts Water',ev:16.7,mkt:8273,isnew:true},
+  ]},
+  {id:'T12', name:'Line Hardware & HVDC', fullName:'Transmission Line Hardware, Conductors & HVDC Cable', img:'linehardware', track:'power',
+   color:'#f4a85c', accent:'#3a1a0a',
+   desc:'PLPC makes the armor rods on every transmission line — 75-year utility spec lock-in, no substitutes. NKT, Prysmian and Nexans make HVDC cable — 5–7 year backlogs at all three.',
+   companies:[
+    {t:'PLPC',n:'Preformed Line Products',ev:18.7,mkt:1720,star:true},
+    {t:'HUBB',n:'Hubbell Power Systems',ev:20.0,mkt:29326},
+    {t:'TEL',n:'TE Connectivity',ev:13.0,mkt:62992},
+    {t:'PRYMF',n:'Prysmian',ev:14.6,mkt:44204},
+    {t:'NEXNY',n:'Nexans',ev:null,mkt:7041},
+    {t:'NKT',n:'NKT A/S',ev:14.3,mkt:7595,star:true,isnew:true},
+    {t:'Sthwre',n:'Southwire',ev:null,mkt:null,priv:true},
+  ]},
+  {id:'T13', name:'Poles & Steel Towers', fullName:'Poles, Towers & Structural Steel Fabrication', img:'tower', track:'power',
+   color:'#f4a85c', accent:'#2a2a20',
+   desc:'Every transmission tower is fabricated steel. Valmont and Arcosa make the poles — a multi-year supercycle the market is only beginning to price in. Steel names at 9–10x price in zero AI benefit.',
+   companies:[
+    {t:'VMI',n:'Valmont Industries',ev:14.1,mkt:9752,star:true},
+    {t:'ACA',n:'Arcosa',ev:12.4,mkt:5864,star:true},
+    {t:'TRN',n:'Trinity Industries',ev:10.0,mkt:2529},
+    {t:'NUE',n:'Nucor',ev:9.5,mkt:48810},
+    {t:'STLD',n:'Steel Dynamics',ev:10.4,mkt:32822},
+    {t:'Sabre',n:'Sabre Industries',ev:null,mkt:null,priv:true},
+  ]},
+  {id:'T14', name:'Galvanizing', fullName:'Steel Corrosion Protection — Hot-Dip Galvanizing', img:'galvanize', track:'power',
+   color:'#f4a85c', accent:'#2a2a20',
+   desc:'AZZ is the last stop before steel goes in the ground. Every tower and data center structural element must be galvanized. 42 plants across North America — a geographic moat impossible to replicate.',
+   companies:[
+    {t:'AZZ',n:'AZZ Inc.',ev:12.5,mkt:4283,star:true},
+    {t:'VMI',n:'Valmont (Galvanizing)',ev:14.1,mkt:9752},
+  ]},
+  {id:'T15', name:'Defense & Adjacent', fullName:'Defense & Adjacent Industrial — AI-Driven Geopolitical Demand', img:'submarine', track:'defense',
+   color:'#c47ef4', accent:'#2a1a3a',
+   desc:'AI reshaping geopolitics accelerates defense spending. GHM is sole-source on Virginia and Columbia Class submarines. ESE/Doble tests every transformer before it goes live and certifies every AI chip through ETS-Lindgren — three distinct AI-adjacent businesses.',
+   companies:[
+    {t:'GHM',n:'Graham Corporation',ev:33.7,mkt:1078,star:true},
+    {t:'ESE',n:'ESCO Technologies',ev:26.1,mkt:8284,star:true},
+    {t:'ATMU',n:'Atmus Filtration',ev:13.7,mkt:5083,star:true},
+    {t:'IPGP',n:'IPG Photonics',ev:26.8,mkt:5286},
+    {t:'BWXT',n:'BWX Technologies',ev:33.6,mkt:20443},
+    {t:'HII',n:'Huntington Ingalls',ev:15.8,mkt:14148},
+    {t:'GD',n:'General Dynamics',ev:13.9,mkt:84832},
+    {t:'CW',n:'Curtiss-Wright',ev:33.2,mkt:26482},
+    {t:'TDG',n:'TransDigm',ev:17.9,mkt:64842},
+    {t:'HEI',n:'Heico',ev:29.3,mkt:31760},
+  ]},
+];
+
+// ── LAYOUT ────────────────────────────────────────────────────────────────
+const NW=130, NH=148, NSW=100, NSH=112;
+const SI_Y=20, PW_Y=500, DC_X=1080, DC_Y1=140, DC_Y2=300;
+const SI_XS=[20,168,316,464,612,760];
+const PW_XS=[860,706,552,398,244,90];
+const SAT_Y=PW_Y+160, SAT_XS=[666,780,894];
+const T15_X=1220, T15_Y=200;
+
+const pos={
+  T1:{x:SI_XS[0],y:SI_Y,w:NW,h:NH},
+  T2:{x:SI_XS[1],y:SI_Y,w:NW,h:NH},
+  T3:{x:SI_XS[2],y:SI_Y,w:NW,h:NH},
+  T4:{x:SI_XS[3],y:SI_Y,w:NW,h:NH},
+  T5:{x:SI_XS[4],y:SI_Y,w:NW,h:NH},
+  T6:{x:SI_XS[5],y:SI_Y,w:NW,h:NH},
+  T7:{x:DC_X,y:DC_Y1,w:NW,h:NH},
+  T8:{x:DC_X,y:DC_Y2,w:NW,h:NH},
+  T9:{x:PW_XS[0],y:PW_Y,w:NW,h:NH},
+  T10a:{x:PW_XS[1],y:PW_Y,w:NW,h:NH},
+  T10b:{x:SAT_XS[0],y:SAT_Y,w:NSW,h:NSH},
+  T10c:{x:SAT_XS[1],y:SAT_Y,w:NSW,h:NSH},
+  T10d:{x:SAT_XS[2],y:SAT_Y,w:NSW,h:NSH},
+  T11:{x:PW_XS[2],y:PW_Y,w:NW,h:NH},
+  T12:{x:PW_XS[3],y:PW_Y,w:NW,h:NH},
+  T13:{x:PW_XS[4],y:PW_Y,w:NW,h:NH},
+  T14:{x:PW_XS[5],y:PW_Y,w:NW,h:NH},
+  T15:{x:T15_X,y:T15_Y,w:NW,h:NH},
+};
+
+const SCENE_W=1420, SCENE_H=780;
+
+function midX(p){return p.x+p.w/2;}
+function midY(p){return p.y+p.h/2;}
+function rightX(p){return p.x+p.w;}
+function botY(p){return p.y+p.h;}
+function topY(p){return p.y;}
+
+function evColor(ev,priv){
+  if(priv) return{bg:'#1e2e1e',text:'#4a7a5a',border:'#2a4a2a'};
+  if(ev===null) return{bg:'#2a2a28',text:'#7a7a78',border:'#3a3a38'};
+  if(ev<15)  return{bg:'#1a2e0a',text:'#8ecf5a',border:'#3a5a1a'};
+  if(ev<25)  return{bg:'#2e1e04',text:'#e8a840',border:'#5a3a08'};
+  if(ev<35)  return{bg:'#2e0a0a',text:'#e88080',border:'#5a1a1a'};
+  return{bg:'#5a0808',text:'#ffaaaa',border:'#8a1010'};
+}
+
+function fmtMkt(m){
+  if(!m)return'—';
+  if(m>=1000000)return'$'+(m/1000000).toFixed(1)+'T';
+  if(m>=1000)return'$'+Math.round(m/1000)+'B';
+  return'$'+m+'M';
+}
+function fmtEv(ev,priv){
+  if(priv)return'Private';
+  if(ev===null)return'N/M';
+  return ev.toFixed(1)+'x';
+}
+function evDot(ev,priv){
+  if(priv)return'#2a4a3a';
+  if(ev===null)return'#4a4a48';
+  if(ev<15)return'#C0DD97';
+  if(ev<25)return'#FAC775';
+  if(ev<35)return'#F09595';
+  return'#E24B4A';
+}
+
+const scene=document.getElementById('scene');
+scene.style.width=SCENE_W+'px';
+scene.style.height=SCENE_H+'px';
+
+const svg=document.getElementById('arrows');
+svg.setAttribute('width',SCENE_W);
+svg.setAttribute('height',SCENE_H);
+
+// ── ARROWS ────────────────────────────────────────────────────────────────
+const defs=document.createElementNS('http://www.w3.org/2000/svg','defs');
+defs.innerHTML=`
+  <marker id="a"  markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto"><polygon points="0 0,6 2,0 4" fill="#4a6a8a" opacity="0.7"/></marker>
+  <marker id="ag" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto"><polygon points="0 0,6 2,0 4" fill="#7ef4b8" opacity="0.7"/></marker>
+  <marker id="ap" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto"><polygon points="0 0,6 2,0 4" fill="#c47ef4" opacity="0.7"/></marker>`;
+svg.appendChild(defs);
+
+function line(x1,y1,x2,y2,col,dash,w,mid){
+  const el=document.createElementNS('http://www.w3.org/2000/svg','line');
+  el.setAttribute('x1',x1);el.setAttribute('y1',y1);el.setAttribute('x2',x2);el.setAttribute('y2',y2);
+  el.setAttribute('stroke',col);el.setAttribute('stroke-width',w||1.5);el.setAttribute('stroke-opacity','0.4');
+  if(dash)el.setAttribute('stroke-dasharray','5,4');
+  el.setAttribute('marker-end','url(#a)');
+  svg.appendChild(el);
+}
+function crv(x1,y1,x2,y2,cx1,cy1,cx2,cy2,col,dash,mid){
+  const el=document.createElementNS('http://www.w3.org/2000/svg','path');
+  el.setAttribute('d',`M${x1},${y1} C${cx1},${cy1} ${cx2},${cy2} ${x2},${y2}`);
+  el.setAttribute('fill','none');el.setAttribute('stroke',col);
+  el.setAttribute('stroke-width','1.5');el.setAttribute('stroke-opacity','0.38');
+  if(dash)el.setAttribute('stroke-dasharray','5,4');
+  el.setAttribute('marker-end','url(#'+(col==='#7ef4b8'?'ag':col==='#c47ef4'?'ap':'a')+')');
+  svg.appendChild(el);
+}
+
+// Silicon track
+['T1','T2','T3','T4','T5'].forEach((id,i)=>{
+  const b=['T2','T3','T4','T5','T6'][i];
+  line(rightX(pos[id]),midY(pos[id]),pos[b].x,midY(pos[b]),'#7ec8f4',false,1.8);
+});
+// T6 → T7 curve down into DC hub
+crv(midX(pos.T6),botY(pos.T6),midX(pos.T7),topY(pos.T7),midX(pos.T6),botY(pos.T6)+70,midX(pos.T7),topY(pos.T7)-40,'#7ef4b8',false);
+// T7 → T8
+line(midX(pos.T7),botY(pos.T7),midX(pos.T8),topY(pos.T8),'#7ef4b8',false,1.8);
+// T8 → T9 curve to power track
+crv(pos.T8.x,midY(pos.T8),rightX(pos.T9),midY(pos.T9),pos.T8.x-50,midY(pos.T8),rightX(pos.T9)+50,midY(pos.T9),'#f4a85c',false);
+// Power track right to left
+[['T9','T10a'],['T10a','T11'],['T11','T12'],['T12','T13'],['T13','T14']].forEach(([a,b])=>{
+  line(pos[a].x,midY(pos[a]),rightX(pos[b]),midY(pos[b]),'#f4a85c',false,1.8);
+});
+// T10a → satellites
+['T10b','T10c','T10d'].forEach(sid=>{
+  crv(midX(pos.T10a),botY(pos.T10a),midX(pos[sid]),topY(pos[sid]),midX(pos.T10a),botY(pos.T10a)+35,midX(pos[sid]),topY(pos[sid])-35,'#f4a85c',true);
+});
+// T15 defense dashed purple
+crv(pos.T15.x,midY(pos.T15),rightX(pos.T10a),midY(pos.T10a),pos.T15.x-50,midY(pos.T15)-30,rightX(pos.T10a)+60,midY(pos.T10a)-30,'#c47ef4',true);
+crv(pos.T15.x,midY(pos.T15)+20,midX(pos.T11),topY(pos.T11),pos.T15.x-30,midY(pos.T15)+70,midX(pos.T11)+50,topY(pos.T11)-30,'#c47ef4',true);
+// T8 → T11 dashed green
+crv(midX(pos.T8),botY(pos.T8),rightX(pos.T11),midY(pos.T11),midX(pos.T8)+100,botY(pos.T8)+90,rightX(pos.T11)+70,midY(pos.T11)-60,'#7ef4b8',true);
+
+// Track labels
+function trackLbl(txt,x,y,color,bg){
+  const d=document.createElement('div');
+  d.style.cssText=`position:absolute;left:${x}px;top:${y}px;font-size:8px;font-weight:bold;letter-spacing:0.08em;text-transform:uppercase;padding:2px 8px;border-radius:10px;color:${color};background:${bg};pointer-events:none;`;
+  d.textContent=txt;
+  scene.appendChild(d);
+}
+trackLbl('← Silicon track',14,4,'#7ec8f4','#1a3a5c33');
+trackLbl('Power & grid track →',14,468,'#f4a85c','#3a1a0a33');
+
+// ── BUILD NODES ───────────────────────────────────────────────────────────
+const nodeEls={};
+
+tiers.forEach(tier=>{
+  const p=pos[tier.id]; if(!p) return;
+  const isSat=!!tier.sat;
+  const div=document.createElement('div');
+  div.className=isSat?'satnode':'tnode';
+  div.id='node_'+tier.id;
+  div.style.left=p.x+'px';
+  div.style.top=p.y+'px';
+  div.style.width=p.w+'px';
+  div.onclick=()=>openPanel(tier.id);
+
+  const pub=tier.companies.filter(c=>!c.priv).length;
+  const prv=tier.companies.filter(c=>c.priv).length;
+  const imgH=isSat?56:80;
+  const bp=isSat?'satbox':'tbox';
+
+  div.innerHTML=`
+    <div class="${bp}" style="background:${tier.accent}22;border-color:${tier.color}44;">
+      <div class="${bp}-img" style="height:${imgH}px;background:${tier.accent}18;">${svgs[tier.img]||''}</div>
+      <div class="${bp}-body">
+        <div class="${bp}-tid" style="color:${tier.color}">${tier.id}</div>
+        <div class="${bp}-name">${tier.name}</div>
+        <div class="${bp}-count">${pub} public${prv>0?' · '+prv+' private':''}</div>
+      </div>
+    </div>`;
+
+  scene.appendChild(div);
+  nodeEls[tier.id]=div;
+});
+
+// ── PANEL ─────────────────────────────────────────────────────────────────
+let activeId=null;
+
+function openPanel(id){
+  if(activeId===id){closePanel();return;}
+  if(activeId)document.getElementById('node_'+activeId)?.classList.remove('active');
+  activeId=id;
+  document.getElementById('node_'+id)?.classList.add('active');
+  const tier=tiers.find(t=>t.id===id);
+  if(!tier)return;
+  document.getElementById('panel-tid').textContent=tier.id;
+  document.getElementById('panel-tid').style.color=tier.color;
+  document.getElementById('panel-name').textContent=tier.fullName;
+  document.getElementById('panel-desc').textContent=tier.desc;
+  const list=document.getElementById('panel-list');
+  list.innerHTML='';
+  tier.companies.forEach(co=>{
+    const row=document.createElement('div');
+    row.className='co-row';
+    row.innerHTML=`
+      <div class="co-dot" style="background:${evDot(co.ev,co.priv)}"></div>
+      <span class="co-ticker">${co.t}</span>
+      <span class="co-name">${co.n}</span>
+      ${co.star?'<span class="co-star">★</span>':''}
+      ${co.priv?'<span class="co-priv">Private</span>':''}
+      ${co.isnew?'<span class="co-new">◆ New</span>':''}`;
+    list.appendChild(row);
+  });
+  document.getElementById('panel').classList.add('open');
+}
+
+function closePanel(){
+  if(activeId)document.getElementById('node_'+activeId)?.classList.remove('active');
+  activeId=null;
+  document.getElementById('panel').classList.remove('open');
+}
+
+// ── PAN & ZOOM ────────────────────────────────────────────────────────────
+const wrap=document.getElementById('wrap');
+let scale=0.78, tx=10, ty=10;
+let dragging=false, lx=0, ly=0;
+
+function applyT(){scene.style.transform=`translate(${tx}px,${ty}px) scale(${scale})`;}
+applyT();
+
+wrap.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const r=wrap.getBoundingClientRect();
+  const mx2=e.clientX-r.left,my2=e.clientY-r.top;
+  const d=e.deltaY>0?0.88:1.14;
+  const ns=Math.min(2.5,Math.max(0.2,scale*d));
+  tx=mx2-(mx2-tx)*(ns/scale);ty=my2-(my2-ty)*(ns/scale);scale=ns;applyT();
+},{passive:false});
+
+wrap.addEventListener('mousedown',e=>{dragging=true;lx=e.clientX;ly=e.clientY;wrap.classList.add('grabbing');});
+window.addEventListener('mousemove',e=>{if(!dragging)return;tx+=e.clientX-lx;ty+=e.clientY-ly;lx=e.clientX;ly=e.clientY;applyT();});
+window.addEventListener('mouseup',()=>{dragging=false;wrap.classList.remove('grabbing');});
+wrap.addEventListener('touchstart',e=>{if(e.touches.length===1){dragging=true;lx=e.touches[0].clientX;ly=e.touches[0].clientY;}},{passive:true});
+wrap.addEventListener('touchmove',e=>{if(dragging&&e.touches.length===1){tx+=e.touches[0].clientX-lx;ty+=e.touches[0].clientY-ly;lx=e.touches[0].clientX;ly=e.touches[0].clientY;applyT();}},{passive:true});
+wrap.addEventListener('touchend',()=>{dragging=false;});
+window.addEventListener('keydown',e=>{
+  if(e.key==='ArrowLeft')tx+=20;if(e.key==='ArrowRight')tx-=20;
+  if(e.key==='ArrowUp')ty+=20;if(e.key==='ArrowDown')ty-=20;
+  if(e.key==='Escape')closePanel();
+  applyT();
+});
+</script>
+</body>
+</html>
