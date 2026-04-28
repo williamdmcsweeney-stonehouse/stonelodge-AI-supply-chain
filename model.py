@@ -181,17 +181,32 @@ LAYERS = {
     # ── Networking ────────────────────────────────────────────────────────────
     "Scale-Out Networking Silicon": {
         "unit": "Tb/s ports", "color": "#3498db",
-        "names": ["AVGO", "MRVL", "ANET", "CSCO (Silicon One)", "ALAB", "CRDO", "MTSI"],
+        "names": ["AVGO", "MRVL", "NVDA (Mellanox)", "ANET", "CSCO (Silicon One)", "HPE (Juniper)", "ALAB", "CRDO", "MTSI"],
         "lead_time_yrs": 0.75, "supply_growth_pct": 0.45,
         "demand_driver": "networking", "demand_scale": 1.0,
-        "description": "AVGO Tomahawk 6 (102.4T) volume; Tomahawk 7 in dev; ANET silicon attach +50% in 2025",
+        "description": "AVGO Tomahawk 6 (102.4T) volume; Tomahawk 7 in dev; ANET silicon attach +50% in 2025. NVDA Mellanox/Spectrum ~$15B/yr (cross-tier). HPE+Juniper closed Jan 2025 — Mist AI + cloud networking ~40% of HPE",
+    },
+    "Co-Packaged Optics (CPO)": {
+        "unit": "M optical lanes", "color": "#48c9b0",
+        "names": ["AVGO", "MRVL", "NVDA", "TSM", "ASE 3711.TT", "COHR", "LITE", "INTC IFS"],
+        "lead_time_yrs": 1.5, "supply_growth_pct": 0.25,
+        "demand_driver": "networking", "demand_scale": 1.6,
+        "description": "Architectural step-change from pluggable transceivers to optics integrated onto switch ASIC package — first volume 2027-28 (TH6+CPO, NVDA Quantum/Spectrum-X CPO). Switch-silicon owners (AVGO, MRVL, NVDA) capture optics value + advanced packaging (TSM SoIC, ASE 2.5D) becomes structurally critical. Supply ramp gated by packaging capacity, not transceiver assembly",
+    },
+    "DPU / SmartNICs": {
+        "unit": "M units", "color": "#5dade2",
+        "names": ["NVDA (BlueField)", "AMD (Pensando)", "INTC (IPU)", "MRVL (OCTEON)", "AVGO", "ALAB"],
+        "lead_time_yrs": 1.0, "supply_growth_pct": 0.35,
+        "demand_driver": "server", "demand_scale": 1.4,
+        "description": "DPU per AI server for east-west networking offload + storage acceleration. NVDA BlueField-3 dominant; AMD Pensando in cloud (AZR), Intel IPU (Google E2000). 1 DPU per AI server today → 2-4 per rack at 800G+. Currently lumped into GPU revenue for NVDA — structurally separate",
     },
     "Optical Transceivers": {
         "unit": "M ports", "color": "#e74c3c",
-        "names": ["COHR", "LITE", "CIEN", "FN", "MTSI", "AAOI", "POET", "CRDO"],
+        "names": ["COHR", "LITE", "CIEN", "FN", "MTSI", "AAOI", "MXL", "POET", "CRDO",
+                  "Innolight 300308.SZ", "Eoptolink 300502.SZ", "Accelink 002281.SZ", "Hisense Broadband"],
         "lead_time_yrs": 1.0, "supply_growth_pct": 0.35,
         "demand_driver": "optics", "demand_scale": 1.0,
-        "description": "800G fully ramping; 1.6T early 2026; CPO transition (2027-28). COHR/LITE/Innolight supply ~30-40% each",
+        "description": "800G fully ramping; 1.6T early 2026; CPO transition (2027-28). COHR/LITE plus Chinese majors (Innolight ~25%, Eoptolink ~15%) supply most global AI optics. MaxLinear (MXL) PAM4 DSP/CDR exposure. ADRs not directly tradeable for Chinese names — watch only for share-shift signals",
     },
     "Fiber / Physical Cabling": {
         "unit": "km M", "color": "#7f8c8d",
@@ -206,6 +221,13 @@ LAYERS = {
         "lead_time_yrs": 0.5, "supply_growth_pct": 0.35,
         "demand_driver": "server", "demand_scale": 1.2,
         "description": "APH 2025 +28% organic; demand +40%+ given rack-density. Amphenol has 40%+ share in PCIe 5.0/6.0 connectors",
+    },
+    "Active Electrical Cables (AEC)": {
+        "unit": "M units", "color": "#a9cce3",
+        "names": ["CRDO", "AVGO", "MRVL", "MTSI", "APH", "Molex"],
+        "lead_time_yrs": 0.5, "supply_growth_pct": 0.50,
+        "demand_driver": "server", "demand_scale": 1.5,
+        "description": "AEC replaces passive copper above 400G/lane and competes with short-reach optics inside rack. CRDO ~80% share — 2025 +245%. Margin pool growing as rack density rises and copper hits Shannon limit at 224G PAM4",
     },
 
     # ── Physical Infrastructure ────────────────────────────────────────────────
@@ -888,9 +910,12 @@ LAYER_DEMAND_COL = {
     "HBM Hybrid Bonding": "hbm_tb",
     "EUV Mask Inspection / Pellicles": "fab_index",
     "Scale-Out Networking Silicon": "networking_tbps",
+    "Co-Packaged Optics (CPO)": "networking_tbps",
+    "DPU / SmartNICs": "networking_tbps",
     "Optical Transceivers": "optics_ports_M",
     "Fiber / Physical Cabling": "optics_ports_M",
     "High-Speed Connectors": "connectors_M",
+    "Active Electrical Cables (AEC)": "networking_tbps",
     "Data Center Construction": "construction_index",
     "DC REITs / Co-lo": "total_compute_gw",
     # Round 4 — grid buildout pipeline + defense; all capex-driven (scales with new GW additions)
@@ -1236,23 +1261,49 @@ LAYER_NAMES_DETAIL = {
         ("ASML", "S", "EUV scanner monopoly (separate dynamic — capacity gating not the bottleneck)"),
     ],
     "Scale-Out Networking Silicon": [
-        ("AVGO", "P", "Tomahawk 6 (102.4T) volume; Tomahawk 7 in dev"),
-        ("MRVL", "P", "Marvell — networking silicon"),
-        ("ANET", "P", "Arista — silicon attach +50% in 2025"),
-        ("CSCO (Silicon One)", "S", "Cisco custom silicon"),
-        ("ALAB", "S", "Astera Labs PCIe/CXL"),
-        ("CRDO", "S", "Credo — AECs (+245% 2024)"),
-        ("MTSI", "S", "MACOM — driver/TIA"),
+        ("AVGO", "P", "Tomahawk 6 (102.4T) volume; Tomahawk 7 in dev; ~50% merchant switch silicon share"),
+        ("MRVL", "P", "Marvell — Innovium acquisition + Teralynx + custom networking ASICs for Trainium"),
+        ("NVDA (Mellanox)", "P", "Mellanox InfiniBand + Spectrum Ethernet ~$15B/yr — bigger than ANET. Cross-tier exposure not surfaced in NVDA narrative (gets credited to compute)"),
+        ("ANET", "P", "Arista — silicon attach +50% in 2025; AI back-end Ethernet leader"),
+        ("CSCO (Silicon One)", "S", "Cisco custom silicon — G200 8x800G, gaining hyperscaler design wins"),
+        ("HPE (Juniper)", "P", "HPE+Juniper closed Jan 2025 ($14B). Juniper Mist AI, Apstra fabric automation. AI/cloud networking now ~40% of HPE revenue post-deal — quietly the #2 enterprise AI infra story"),
+        ("ALAB", "S", "Astera Labs — PCIe/CXL retimers + Scorpio fabric switches for AI rack"),
+        ("CRDO", "S", "Credo — AECs (+245% 2024); SerDes/PHY IP into networking ASICs"),
+        ("MTSI", "S", "MACOM — analog driver/TIA into networking and optical"),
+    ],
+    "Co-Packaged Optics (CPO)": [
+        ("AVGO", "P", "Tomahawk 6+CPO architectural leader; bonds optics directly onto switch ASIC. First volume hyperscaler CPO 2027-28. Captures $/port that today goes to transceiver vendors"),
+        ("MRVL", "P", "Marvell CPO roadmap on next-gen switch silicon; partnership with TSM for advanced packaging"),
+        ("NVDA", "P", "Quantum-X / Spectrum-X CPO disclosed at GTC 2025 — co-packaged silicon photonics for InfiniBand/Ethernet"),
+        ("TSM", "P", "TSMC SoIC + CoWoS packaging is the CPO bottleneck — silicon photonics integration on advanced packaging substrates. Same line as HBM/CoWoS — competing for capacity"),
+        ("ASE 3711.TT", "P", "ASE 2.5D/3D packaging for CPO assembly; sub-supplier to AVGO/MRVL"),
+        ("COHR", "S", "Coherent — laser engines for external light sources to CPO modules; preserves some content even after pluggable cannibalization"),
+        ("LITE", "S", "Lumentum — DML/EML laser source for remote light delivery into CPO"),
+        ("INTC IFS", "K", "Intel silicon photonics IP + IFS packaging — pre-CPO product but technology adjacency"),
+        ("POET", "K", "Optical Interposer platform — pre-revenue CPO play"),
+    ],
+    "DPU / SmartNICs": [
+        ("NVDA (BlueField)", "P", "BlueField-3 dominant in AI data centers; offloads networking + storage from x86. ~$3B run-rate hidden inside NVDA networking line"),
+        ("AMD (Pensando)", "P", "Pensando ($2B acquisition) DPU shipping in Azure/Oracle clouds; Salina P4 next-gen 2026"),
+        ("INTC (IPU)", "S", "Intel IPU E2000 deployed at Google — under-followed but volume customer"),
+        ("MRVL (OCTEON)", "S", "OCTEON 10 ARM-based DPU; security/SDN attach"),
+        ("AVGO", "S", "Stingray/Pensando-class SmartNIC silicon — incremental to switch business"),
+        ("ALAB", "K", "Astera Labs PCIe fabric — adjacent to DPU role"),
     ],
     "Optical Transceivers": [
-        ("COHR", "P", "Coherent — 800G/1.6T leader"),
-        ("LITE", "P", "Lumentum — major transceiver supplier"),
-        ("CIEN", "P", "Ciena — DCI Wolfe top pick"),
-        ("FN", "S", "Fabrinet — assembly"),
-        ("MTSI", "S", "MACOM"),
-        ("AAOI", "S", "Applied Optoelectronics — small-cap hyperscaler wins"),
-        ("POET", "K", "POET Technologies — Si photonics dev"),
-        ("CRDO", "S", "AEC alternative"),
+        ("COHR", "P", "Coherent — 800G/1.6T leader; transceiver + laser engine breadth"),
+        ("LITE", "P", "Lumentum — major transceiver supplier + EML/DML lasers"),
+        ("CIEN", "P", "Ciena — DCI Wolfe top pick; coherent optical for DC interconnect"),
+        ("FN", "P", "Fabrinet — contract manufacturing for COHR/NVDA optical modules; quietly the fab-equivalent of optics"),
+        ("MTSI", "S", "MACOM — driver/TIA into transceivers"),
+        ("AAOI", "S", "Applied Optoelectronics — small-cap hyperscaler wins (AMZN, MSFT)"),
+        ("MXL", "P", "MaxLinear — PAM4 DSP/CDR for 800G/1.6T transceivers; broader connectivity portfolio still rebuilding post-Silicon Motion deal collapse — depressed multiple, optionality on optical re-rate"),
+        ("POET", "K", "POET Technologies — Si photonics interposer dev; pre-revenue"),
+        ("CRDO", "S", "AEC primary; transceiver SerDes secondary"),
+        ("Innolight 300308.SZ", "P", "Innolight (Suzhou) ~25% global AI optics share — largest 800G volume supplier to NVDA. Shenzhen A-share NOT directly tradeable for US accounts; watch only as share-shift signal vs COHR/LITE"),
+        ("Eoptolink 300502.SZ", "P", "Eoptolink ~15% global AI optics share; Chinese A-share watch only. Disclosures useful for transceiver pricing/volume read-throughs"),
+        ("Accelink 002281.SZ", "S", "Accelink — transceiver + DWDM components; A-share watch only"),
+        ("Hisense Broadband", "K", "Hisense — Chinese transceiver volume player; private/sub of Hisense Group"),
     ],
     "Fiber / Physical Cabling": [
         ("GLW", "P", "Corning — capacity-constrained 2024-26"),
@@ -1271,6 +1322,14 @@ LAYER_NAMES_DETAIL = {
         ("Bel Fuse", "S", "BELFB"),
         ("Hirose 6806.T", "S", "Japanese connectors"),
         ("JAE 6807.T", "S", "Japan Aviation Electronics"),
+    ],
+    "Active Electrical Cables (AEC)": [
+        ("CRDO", "P", "Credo Tech — ~80% AEC market share; 2025 revenue +245%. Replaces passive copper above 400G/lane and short-reach optics inside rack"),
+        ("AVGO", "S", "Broadcom AEC SerDes IP into ASIC; secondary beneficiary"),
+        ("MRVL", "S", "Marvell PAM4 DSP into AEC modules"),
+        ("MTSI", "S", "MACOM — analog driver into AEC"),
+        ("APH", "S", "Amphenol — AEC assembly + connectors"),
+        ("Molex", "S", "Molex — AEC assembly"),
     ],
     "Data Center Construction": [
         ("PWR", "P", "Quanta — record $44B backlog YE25"),
@@ -1420,9 +1479,12 @@ LAYER_TIER = {
     "EUV Mask Inspection / Pellicles": ("T2",  "silicon"),
     # Networking
     "Scale-Out Networking Silicon":   ("T5",  "silicon"),
+    "Co-Packaged Optics (CPO)":       ("T5",  "silicon"),
+    "DPU / SmartNICs":                ("T5",  "silicon"),
     "Optical Transceivers":           ("T5",  "silicon"),
     "Fiber / Physical Cabling":       ("T5",  "silicon"),
     "High-Speed Connectors":          ("T5",  "silicon"),
+    "Active Electrical Cables (AEC)": ("T5",  "silicon"),
     # Physical Infrastructure
     "Data Center Construction":       ("T7",  "dc"),
     "DC REITs / Co-lo":               ("T7",  "dc"),
@@ -1521,6 +1583,27 @@ THEME_EXPOSURE = {
     # ── Pre-revenue / private (NA but tag for clarity) ──────────────────────
     "OKLO": 100, "POET": 100, "AEHR": 30, "Siemens EDA": 30, "CEVA": 25,
     "Turner": 35, "CSCO (Silicon One)": 15,
+    # ── Networking / optics expansion (Wave 9) ───────────────────────────────
+    # HPE post-Juniper close (Jan 2025) — combined networking + Aruba + Juniper
+    # is now ~40% of HPE; rest of company (compute/storage/services) still drags
+    "HPE (Juniper)": 40,
+    "HPE": 40,
+    # Cross-tier exposure — these inherit parent's exposure since they're the
+    # same equity (NVDA Mellanox/Spectrum, AMD Pensando, etc.)
+    "NVDA (Mellanox)": 85,         # part of NVDA — same 85%
+    "NVDA (BlueField)": 85,        # BlueField DPU under NVDA networking line
+    "AMD (Pensando)": 35,          # AMD parent exposure
+    "INTC (IPU)": 15,              # Intel — diversified, IPU small slice
+    "MRVL (OCTEON)": 50,           # Marvell parent exposure
+    # MaxLinear — connectivity/PAM4 is meaningful slice of revenue post-SIMO collapse
+    "MXL": 50,
+    # Chinese A-share optics — heavy AI optics concentration; not tradeable for
+    # US accounts but tagged for completeness so they appear in rankings as
+    # watch-only references
+    "Innolight 300308.SZ": 80,
+    "Eoptolink 300502.SZ": 75,
+    "Accelink 002281.SZ": 50,
+    "Hisense Broadband": 30,
 }
 
 

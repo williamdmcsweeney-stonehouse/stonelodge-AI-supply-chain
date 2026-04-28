@@ -110,6 +110,10 @@ NEW_LAYERS = {
     "Steel Poles & Towers",
     "Galvanizing",
     "Defense Adjacent",
+    # Round 5 (Wave 9) — optics / networking expansion
+    "Co-Packaged Optics (CPO)",
+    "DPU / SmartNICs",
+    "Active Electrical Cables (AEC)",
 }
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -834,7 +838,10 @@ STAGES = [
         "Advanced Substrates / PCB",
         "ABF Dielectric Film",
         "High-Speed Connectors",
+        "Active Electrical Cables (AEC)",
         "Scale-Out Networking Silicon",
+        "DPU / SmartNICs",
+        "Co-Packaged Optics (CPO)",
         "Optical Transceivers",
         "Fiber / Physical Cabling",
     ]),
@@ -850,7 +857,7 @@ st.markdown(f"### Bottleneck Map · {year}")
 st.caption(
     "Each card = a supply-chain layer. **Color = tightness** for the selected year "
     "(red = binding, green = balanced). Tickers shown are primary plays per Stonehouse research desk. "
-    "Cards tagged **NEW** were added in the April 2026 reconciliations: Round 3 (GOES, Labor, Grid Interconnect, LPT/Distribution split, ABF film, Hybrid Bonding, EUV Mask Inspection); Round 4 (Line Hardware & HVDC, Steel Poles & Towers, Galvanizing, Defense Adjacent)."
+    "Cards tagged **NEW** were added in the April 2026 reconciliations: Round 3 (GOES, Labor, Grid Interconnect, LPT/Distribution split, ABF film, Hybrid Bonding, EUV Mask Inspection); Round 4 (Line Hardware & HVDC, Steel Poles & Towers, Galvanizing, Defense Adjacent); Round 5 — optics/networking expansion (Co-Packaged Optics, DPU/SmartNICs, Active Electrical Cables — plus HPE, MaxLinear, Innolight/Eoptolink reference adds, and NVDA networking cross-tier exposure)."
 )
 
 cols = st.columns([1, 2.2, 2.5, 1.8, 1.2])
