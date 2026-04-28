@@ -267,7 +267,7 @@ These go in `shared/pattern_library/` as permanent reference files (e.g., `marke
 **The mechanism:**
 - **Immediately:** Any agent that discovers a cross-domain insight writes it to `shared/cross_agent_insights/YYYY-MM-DD_[agent]_[topic].md` before the conversation ends.
 - **Sunday synthesis (Program 4):** Extracts the week's cross-domain lessons, updates pattern library files, and publishes a weekly cross-sector briefing all agents absorb.
-- **Session ramp *(target state — not yet fully wired):*** Every agent's session ramp should reference the shared library so each new conversation starts with current cross-domain context. Currently agents read shared memory on request; automatic session-ramp injection is a V5 milestone.
+- **Session ramp *(wired — as of 2026-04-28):*** Every chat session automatically injects: (1) agent-specific knowledge sorted by type priority + recency, (2) newest 10 cross-agent insights from `shared/cross_agent_insights/`, (3) all 6 compounder archetypes from `shared/pattern_library/`, (4) universal shared feedback rules. Implemented in `src/routes/analyst-chat.js → loadAgentMemory()`. TTL: 30 min, so training output appears in chat within half an hour of being written.
 
 **The north star:** A sector analyst's pitch should naturally incorporate the PM's market cycle context. The PM should naturally speak the sector's language. They train each other continuously until the distinction between "sector expert" and "market-aware analyst" disappears inside a single agent's output.
 
