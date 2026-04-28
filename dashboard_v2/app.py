@@ -44,6 +44,7 @@ from model import (
     build_token_demand,
     gap_summary,
     power_inflection_year,
+    theme_exposure_pct,
 )
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -185,6 +186,14 @@ util_2025 = st.sidebar.slider(
     1.0, 20.0, round(preset["util_2025"] * 100, 1), 0.1,
     help="Pct of deployed AI fleet doing active inference. Used by layer-level model only. ~6.7% historical.",
 ) / 100
+
+st.sidebar.markdown("### Theme Exposure Filter")
+st.sidebar.caption("Hide names where AI infra is too small a share of revenue to move the equity.")
+min_exposure = st.sidebar.slider(
+    "Minimum AI-infra exposure %", 0, 100, 25, 5,
+    help="Pure-Play Score = composite × exposure %. Names below this threshold are filtered out of the rankings. "
+         "CLF (6%) / Ajinomoto (4%) / Hitachi (10%) get hidden at 25% — re-include them by lowering the slider.",
+)
 
 with st.sidebar.expander("Advanced — supply phase rates"):
     sr1 = st.slider("2026-27 supply growth %", 5, 50, int(macro_cfg["supply_rates"][0] * 100), 1) / 100
@@ -900,13 +909,9 @@ st.plotly_chart(heat_fig, width='stretch')
 # SECTION 3: EASIEST BETS — mispricing surface
 # ═════════════════════════════════════════════════════════════════════════════
 st.markdown("---")
-st.markdown("### Easiest Bets · Tightness × Tier × Layer Coverage")
-st.caption(
-    "**Mispricing score** = sum across each ticker's layer exposures of "
-    "(forward-tightness 2027-30) × (tier weight: P=1.0, S=0.6, K=0.3). "
-    "Names that play multiple tight layers, or play a single tight layer as a primary, score highest. "
-    "Top 10 shown as cards with sparklines; long tail in the table below."
-)
+st.markdown("### Easiest Bets · Tightness × Tier × Layer Coverage × Theme Exposure")
+# Caption rendered after bets_df is built (needs len() of filtered + full sets)
+_caption_placeholder = st.empty()
 
 TIER_WEIGHTS = {"P": 1.0, "S": 0.6, "K": 0.3}
 
@@ -954,6 +959,13 @@ def build_mispricing(_tight_df_hash, year_lo: int = 2027, year_hi: int = 2030):
         sc_tier, sc_track = LAYER_TIER.get(primary_layer, ("—", "—"))
         is_pivotal = ticker in PIVOTAL_TICKERS
 
+        # Theme exposure overlay — what % of company revenue is actually tied
+        # to AI infra. Pure-Play Score haircuts the structural composite by
+        # this share so equity-level mispricing isn't overstated for sole-source
+        # franchises hidden inside diversified parents (CLF GOES at 6%, etc).
+        exposure = theme_exposure_pct(ticker)
+        pure_play = composite * exposure / 100.0
+
         rows.append({
             "★": "★" if is_pivotal else "",
             "Ticker": ticker,
@@ -961,7 +973,9 @@ def build_mispricing(_tight_df_hash, year_lo: int = 2027, year_hi: int = 2030):
             "Track": sc_track,
             "Primary Layer": primary_layer,
             "Role": primary_tier,
+            "Exposure %": exposure,
             "Tightness 2027-30": round(fwd[primary_layer], 1),
+            "Pure-Play Score": round(pure_play, 1),
             "Composite Score": round(composite, 1),
             "Breadth": round(breadth, 1),
             "Depth": round(depth, 1),
@@ -970,11 +984,23 @@ def build_mispricing(_tight_df_hash, year_lo: int = 2027, year_hi: int = 2030):
             "Why": primary_why,
         })
     return pd.DataFrame(rows).sort_values(
-        ["Composite Score", "Tightness 2027-30"], ascending=[False, False]
+        ["Pure-Play Score", "Composite Score"], ascending=[False, False]
     ).reset_index(drop=True)
 
 
-bets_df = build_mispricing(hash(tuple(tight_df.values.tobytes())))
+bets_df_full = build_mispricing(hash(tuple(tight_df.values.tobytes())))
+# Apply the sidebar exposure filter — keep names with at least min_exposure% AI tie-in
+bets_df = bets_df_full[bets_df_full["Exposure %"] >= min_exposure].reset_index(drop=True)
+
+# Backfill the caption now that we know the filter counts
+_caption_placeholder.caption(
+    "**Pure-Play Score = Composite × Exposure % / 100.** Composite captures the structural tightness of "
+    "a name's primary layers (50% breadth + 30% depth + 20% monopoly boost). "
+    "Exposure haircuts that by the share of revenue actually tied to AI infra — so a sole-source supplier "
+    "where the bottleneck is only 6% of revenue (CLF) doesn't get rerated as if it's a pure-play. "
+    f"Filter currently set to **≥{min_exposure}% AI exposure** ({len(bets_df)} of {len(bets_df_full)} names shown). "
+    "Top 10 shown as cards with sparklines; long tail in the table below."
+)
 
 # Top 10 — cards with sparklines (2 columns × 5 rows)
 top10 = bets_df.head(10)
@@ -1019,16 +1045,29 @@ def render_bet_card(row, sparkline_layer: str, layer_color: str):
         f"padding:1px 6px; border-radius:8px; font-weight:700; letter-spacing:0.05em; "
         f"text-transform:uppercase; margin-left:6px;'>{row['Tier']} · {row['Track']}</span>"
     )
+    # Exposure pill — color shifts with how pure-play the name is
+    exp = int(row['Exposure %'])
+    exp_color = "#27ae60" if exp >= 70 else ("#d4ac0d" if exp >= 35 else "#922b21")
+    exposure_pill = (
+        f"<span style='background:{exp_color}; color:#fff; font-size:9px; "
+        f"padding:1px 6px; border-radius:8px; font-weight:700; letter-spacing:0.05em; "
+        f"margin-left:5px;'>{exp}% AI-tied</span>"
+    )
     layer_line = (
         f"{row['Primary Layer']} · plays {row['# Layers']} "
         f"layer{'s' if row['# Layers'] > 1 else ''} · "
         f"tightness {row['Tightness 2027-30']:.0f}/100{monopoly_badge}"
     )
+    score_line = (
+        f"<span style='color:#ffd700'>{row['Pure-Play Score']:.0f}</span>"
+        f"<span style='color:#8893a8; font-size:10px; margin-left:4px'>"
+        f"({row['Composite Score']:.0f} × {exp}%)</span>"
+    )
     st.markdown(
         f"""
         <div class='bet-card'>
-          <span class='score'>{row['Composite Score']:.0f}</span>
-          <div class='ticker'>{pivotal_badge}{row['Ticker']}{track_pill}</div>
+          <span class='score'>{score_line}</span>
+          <div class='ticker'>{pivotal_badge}{row['Ticker']}{track_pill}{exposure_pill}</div>
           <div class='layer'>{layer_line}</div>
           <div class='why'>{row['Why']}</div>
         </div>
@@ -1117,24 +1156,37 @@ for i in range(0, len(per_layer_df), n_cols):
             )
 
 
-# Full ranked table (all tickers)
-st.markdown("#### Full Ranking — all tickers")
-st.caption("Sorted by mispricing score. Click a column header to re-sort.")
+# Full ranked table (all tickers above the exposure threshold)
+st.markdown(f"#### Full Ranking — names ≥{min_exposure}% AI-infra exposure")
+st.caption(
+    f"Sorted by **Pure-Play Score** = Composite × Exposure %. Showing {len(bets_df)} of {len(bets_df_full)} tickers "
+    "(others fall below the exposure filter). Click any column header to re-sort."
+)
 st.dataframe(
     bets_df.style.background_gradient(
-        cmap="Reds", subset=["Composite Score", "Tightness 2027-30", "Breadth", "Depth"]
+        cmap="Reds", subset=["Pure-Play Score", "Composite Score", "Tightness 2027-30", "Breadth", "Depth"]
+    ).background_gradient(
+        cmap="Greens", subset=["Exposure %"]
     ),
     width='stretch',
-    height=400,
+    height=440,
     column_config={
         "★": st.column_config.TextColumn(width="small", help="Colleague's pivotal flag — sole-source / critical-path operator within its tier"),
         "Tier": st.column_config.TextColumn(width="small", help="Supply-chain tier T1-T15 per colleague's flow diagram"),
         "Track": st.column_config.TextColumn(width="small", help="silicon / dc / power / defense"),
         "Role": st.column_config.TextColumn(width="small", help="Stonehouse exposure tier on the primary layer (P = primary, S = secondary, K = known)"),
+        "Exposure %": st.column_config.NumberColumn(
+            "Exp %", format="%d%%",
+            help="Estimated % of company revenue tied to AI infra. Best-effort from segment disclosures + sell-side. Override per ticker in model.py::THEME_EXPOSURE.",
+        ),
+        "Pure-Play Score": st.column_config.NumberColumn(
+            "Pure-Play", format="%.0f",
+            help="Composite × Exposure / 100. The equity-level mispricing signal. Sole-source franchises hidden inside diversified parents (CLF GOES at 6%) score low here even if their composite is high.",
+        ),
         "Why": st.column_config.TextColumn("Investment Rationale", width="large"),
         "Composite Score": st.column_config.NumberColumn(
             "Composite", format="%.0f",
-            help="50% Breadth + 30% Depth + 20% Monopoly Boost",
+            help="Structural tightness only: 50% Breadth + 30% Depth + 20% Monopoly Boost. Ignores how big the franchise is in revenue terms.",
         ),
         "Breadth": st.column_config.NumberColumn(format="%.0f", help="Sum tightness × role-weight across layers (normalized)"),
         "Depth": st.column_config.NumberColumn(format="%.0f", help="Max single-layer tightness × role-weight"),

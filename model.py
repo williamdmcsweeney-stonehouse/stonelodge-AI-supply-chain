@@ -1439,3 +1439,91 @@ TRACK_COLOR = {
     "power":   "#c0392b",   # red
     "defense": "#1a5276",   # navy
 }
+
+
+# ── Theme exposure overlay ───────────────────────────────────────────────────
+# Estimated % of company revenue tied to AI infrastructure / data-center demand.
+# Used by the dashboard's Pure-Play Score: composite × exposure / 100.
+#
+# Why this matters: a ticker can be the sole-source supplier of a critical
+# bottleneck input but only generate, say, 6% of total revenue from it (CLF / GOES).
+# In that case the structural mispricing is real but the equity-level rerate is
+# small — the market is pricing 94% of the business correctly.
+#
+# Numbers below are best estimates from segment disclosures, sell-side decks,
+# and earnings call commentary. Treat as a calibration starting point — refine
+# from primary sources or override per ticker. Defaults to 30% if missing.
+#
+# Source notes (representative):
+#   CLF 6% — PM lookup; GOES is small slice of integrated steel revenue
+#   Ajinomoto 4% — ABF film monopoly hidden inside ¥1.4T food/staples giant
+#   Hitachi 6501.T 10% — Hitachi Energy is the AI-tied subset of conglomerate
+#   AZZ 35% — galvanizing services 60% of revenue; transmission/utility ~half of that
+#   NVDA 85% — DC dominant; gaming/auto are small share now
+#   AVGO 50% — networking + custom XPU AI; still has wireless/broadband
+#   ASML 85% — leading-edge wafer capex is overwhelmingly AI-driven
+#   ALAB 95% — Astera Labs is a pure AI rack-interconnect pure-play
+#   EQIX/DLR 100% — DC operators
+#   VRT 75% — DC power/cooling pure-play
+#   FIX 50% — modular DC pre-fab dominates the order book
+#   GEV 35% — gas turbines AI-tied; nuclear/wind/grid services dilute
+#   CEG/TLN 30% — most reactor capacity is grid baseload; behind-the-meter PPAs growing
+THEME_EXPOSURE = {
+    # ── Pure plays (>70%) ────────────────────────────────────────────────────
+    "NVDA": 85, "ALAB": 95, "ASML": 85, "Lasertec 6920.T": 75, "BESI": 80,
+    "ASMPT 0522.HK": 70, "Han Mi Semi 042700.KS": 80, "Han Mi Semi": 80,
+    "Disco 6146.T": 70, "VRT": 75, "CRDO": 75, "IBIDEN 4062.T": 70, "Ampere": 80,
+    "FN": 70, "Cerebras": 100,
+    # DC operators are pure plays
+    "EQIX": 100, "DLR": 100, "IREN": 100, "CORZ": 100, "APLD": 100,
+    "NEXTDC": 100, "Keppel DC": 100,
+    # ── Significant exposure (40-70%) ───────────────────────────────────────
+    "AVGO": 50, "AMAT": 50, "LRCX": 50, "KLAC": 50, "TSM": 60, "MU": 50,
+    "SK Hynix 000660.KS": 40, "TEL 8035.T": 40, "ANET": 65, "MRVL": 50,
+    "COHR": 60, "LITE": 65, "AAOI": 65, "MOD": 40, "Asetek": 50, "POWL": 60,
+    "PWR": 40, "MYRG": 40, "EME": 40, "FIX": 50, "ONTO": 60, "ENTG": 50,
+    "ACLS": 40, "Shinko 6967.T": 60, "SEMCO 009150.KS": 40, "Unimicron 3037.TT": 55,
+    "AT&S": 50, "MPWR": 50, "SNPS": 50, "CDNS": 50, "Rambus RMBS": 60,
+    "ARM": 40, "Boyd (ETN)": 40,
+    # ── Moderate exposure (25-40%) ──────────────────────────────────────────
+    "AMD": 35, "AMD (EPYC)": 35, "GEV": 35, "GEV (Prolec)": 35, "CEG": 30,
+    "VST": 25, "TLN": 30, "SE": 30, "Schneider": 30, "ETN": 35, "GNRC": 35,
+    "HUBB": 30, "ABB": 25, "AMKR": 30, "ASE 3711.TT": 35, "TE Connectivity": 25,
+    "TEL": 25, "Prysmian": 25, "CIEN": 35, "GLW": 35, "SPXC": 35, "NVT": 35,
+    "Munters": 25, "MTSI": 30, "Bel Fuse": 30, "Delta 2308.TT": 30,
+    "ESE": 35, "AZZ": 35, "VMI": 30, "PLPC": 65, "NKT": 70, "ACA": 35,
+    "PRIM": 25, "IESC": 35, "TER": 30, "MKSI": 30, "Hirose 6806.T": 20,
+    "TTM": 40, "Stalprodukt": 30, "CommScope": 30, "BDC": 25, "Nanya 2408.TT": 25,
+    "GHM": 25, "ATMU": 25, "BWXT": 25, "CW": 20, "IPGP": 20, "IRM": 25,
+    "Sabre": 50, "Southwire": 30, "Molex": 30,
+    # ── Low exposure / diversified (10-25%) ─────────────────────────────────
+    "INTC": 15, "INTC IFS": 15, "AAPL (M-series)": 5, "Samsung 005930.KS": 15,
+    "Winbond 2344.TT": 15, "MHI 7011.T": 10, "Hitachi 6501.T": 10,
+    "Nidec 6594.T": 8, "EMR": 12, "JCI": 8, "TT": 10, "CMI": 12, "CAT": 10,
+    "DUK": 8, "SO": 8, "EXC": 10, "AEP": 12, "NRG": 10, "AES": 10,
+    "MTZ": 15, "DY": 15, "APG": 20, "AMT": 15, "ATKR": 10, "Legrand": 15,
+    "GD": 8, "TDG": 8, "HII": 15, "HEI": 10, "MOG.A": 15, "WEG": 5,
+    "ThyssenKrupp": 5, "JAE 6807.T": 15, "Furukawa 5801.T": 15, "Fujikura 5803.T": 15,
+    "Sumitomo 5802.T": 5, "Kohler": 25, "Nexans": 15, "TRN": 10, "APH": 50,
+    # ── Very low / structurally tiny (≤10%) ─────────────────────────────────
+    "CLF": 6,                     # GOES is sole-source but ~6% of integrated steel rev
+    "Ajinomoto 2802.T": 4,        # ABF film inside food/staples giant
+    "Mitsui Chemicals 4183.T": 5, # EUV pellicle inside diversified chems
+    "Sekisui Chemical 4204.T": 3,
+    "POSCO 005490.KS": 3, "JFE 5411.T": 3, "Nippon Steel 5401.T": 3,
+    "Baoshan 600019.SS": 2, "NUE": 5, "STLD": 5,
+    "AAOI": 65,  # already covered above; keeping for safety
+    # ── Internal-customer "tickers" (no public equity) — use parent if any ──
+    "GOOG (TPU)": 5,              # internal silicon — exposure on GOOG shares ~5%
+    "AMZN (Trainium)": 5,         # internal — AWS AI inside AMZN ~10% but Trainium specifically smaller
+    "AMZN (Graviton)": 4,
+    "MSFT (Cobalt)": 5, "GOOG (Axion)": 4,
+    # ── Pre-revenue / private (NA but tag for clarity) ──────────────────────
+    "OKLO": 100, "POET": 100, "AEHR": 30, "Siemens EDA": 30, "CEVA": 25,
+    "Turner": 35, "CSCO (Silicon One)": 15,
+}
+
+
+def theme_exposure_pct(ticker: str, default: int = 30) -> int:
+    """Return estimated AI-infrastructure revenue exposure (0-100) for a ticker."""
+    return THEME_EXPOSURE.get(ticker, default)
