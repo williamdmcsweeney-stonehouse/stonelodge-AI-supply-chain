@@ -6,6 +6,8 @@ streamlit.log
 *.log
 .env
 
-# Local Claude state (agent definitions in .claude/agents/ ARE tracked)
-.claude/settings.local.json
-.claude/agent-memory/
+# Local Claude state — agents kept local-only to avoid leaking proprietary
+# investment process / portfolio holdings to the public repo. Canonical copies
+# live in stonelodge-backend (private). Local files still load in Claude Code
+# for normal use in this directory.
+.claude/
