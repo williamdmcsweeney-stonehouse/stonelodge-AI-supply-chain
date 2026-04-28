@@ -1610,3 +1610,87 @@ THEME_EXPOSURE = {
 def theme_exposure_pct(ticker: str, default: int = 30) -> int:
     """Return estimated AI-infrastructure revenue exposure (0-100) for a ticker."""
     return THEME_EXPOSURE.get(ticker, default)
+
+
+# ── Market cap reference (USD billions, ~April 2026) ─────────────────────────
+# Best-effort snapshot for sizing bubbles in the dashboard's interactive
+# explorer. Update from Bloomberg before any decision-grade work — these are
+# illustrative and decay with every tape print.
+MARKET_CAP_USD_B = {
+    # Mega-cap silicon
+    "NVDA": 3500, "AAPL (M-series)": 3200, "MSFT (Cobalt)": 3300,
+    "GOOG (TPU)": 2300, "GOOG (Axion)": 2300, "AMZN (Trainium)": 2200,
+    "AMZN (Graviton)": 2200, "AVGO": 1100, "TSM": 1300, "META": 1700,
+    "ORCL": 600,
+    # Large-cap silicon
+    "AMD": 320, "AMD (EPYC)": 320, "AMD (Pensando)": 320, "INTC": 110,
+    "INTC IFS": 110, "INTC (IPU)": 110, "ARM": 180, "ASML": 360,
+    "QCOM": 200, "MU": 180, "AMAT": 180, "LRCX": 130, "KLAC": 130,
+    "SNPS": 120, "CDNS": 95, "MRVL": 75, "MRVL (OCTEON)": 75,
+    "ANET": 230, "ADI": 110, "TXN": 180,
+    "NVDA (Mellanox)": 3500, "NVDA (BlueField)": 3500,
+    # Mid-cap silicon / equipment
+    "Lasertec 6920.T": 22, "BESI": 12, "ASMPT 0522.HK": 8,
+    "Han Mi Semi": 10, "Han Mi Semi 042700.KS": 10,
+    "Disco 6146.T": 30, "TEL 8035.T": 90, "ONTO": 11, "ENTG": 18,
+    "TER": 15, "MKSI": 6, "AEHR": 0.4, "ACLS": 4, "CRDO": 12,
+    "MTSI": 8, "MPWR": 35, "ALAB": 15, "MXL": 1.2, "Rambus RMBS": 7,
+    # Memory
+    "SK Hynix 000660.KS": 130, "Samsung 005930.KS": 380,
+    "Nanya 2408.TT": 5, "Winbond 2344.TT": 2,
+    # Foundry / OSAT / packaging
+    "ASE 3711.TT": 30, "AMKR": 7, "IBIDEN 4062.T": 8,
+    "Unimicron 3037.TT": 5, "TTM": 2.5, "AT&S": 0.8,
+    "Shinko 6967.T": 4, "SEMCO 009150.KS": 9,
+    # Specialty inputs / sole-source
+    "Ajinomoto 2802.T": 30, "Sekisui Chemical 4204.T": 8,
+    "Mitsui Chemicals 4183.T": 4, "POSCO 005490.KS": 22,
+    "JFE 5411.T": 8, "Nippon Steel 5401.T": 24, "ThyssenKrupp": 6,
+    "Stalprodukt": 0.4, "Baoshan 600019.SS": 25,
+    # IP
+    "Siemens EDA": 200, "CEVA": 0.4, "Cerebras": 5,
+    "Ampere": 4, "Turner": 8,
+    # Optical / networking specialty
+    "COHR": 14, "LITE": 9, "CIEN": 11, "FN": 9, "AAOI": 1.5,
+    "POET": 0.4, "CSCO (Silicon One)": 220,
+    "Innolight 300308.SZ": 18, "Eoptolink 300502.SZ": 14,
+    "Accelink 002281.SZ": 4, "Hisense Broadband": 1.5,
+    "HPE": 25, "HPE (Juniper)": 25,
+    # Connectors / fiber
+    "APH": 110, "TE Connectivity": 60, "Molex": 30,
+    "Hirose 6806.T": 6, "JAE 6807.T": 1.5, "Bel Fuse": 1.4,
+    "MOG.A": 7,
+    "GLW": 35, "Prysmian": 18, "CommScope": 0.8, "BDC": 5,
+    "Furukawa 5801.T": 3, "Sumitomo 5802.T": 6, "Fujikura 5803.T": 5,
+    "Nexans": 7, "Southwire": 8,
+    # Power gen
+    "GEV": 130, "GEV (Prolec)": 130, "CEG": 90, "VST": 60,
+    "TLN": 30, "SE": 60, "Hitachi 6501.T": 130, "MHI 7011.T": 80,
+    "NRG": 25, "AES": 12, "DUK": 100, "SO": 110, "AEP": 60,
+    "EXC": 45, "OKLO": 4, "WEG": 30,
+    # Power equipment / grid
+    "ETN": 130, "VRT": 50, "ABB": 105, "HUBB": 25, "SPXC": 8,
+    "POWL": 4, "NVT": 12, "Schneider": 130, "Legrand": 25,
+    "ATKR": 2.5, "GNRC": 9, "CMI": 50, "CAT": 200, "Kohler": 6,
+    "Delta 2308.TT": 35, "EMR": 75, "JCI": 65, "TT": 95,
+    "Munters": 4, "Asetek": 0.05, "MOD": 5, "Boyd (ETN)": 130,
+    "Nidec 6594.T": 30,
+    # Contractors / specialty labor
+    "PWR": 70, "MYRG": 4, "EME": 25, "FIX": 30, "IESC": 6,
+    "APG": 12, "MTZ": 12, "DY": 6, "PRIM": 4,
+    # DC REITs
+    "EQIX": 90, "DLR": 60, "IRM": 35, "AMT": 100,
+    "IREN": 4, "CORZ": 9, "APLD": 3, "NEXTDC": 6, "Keppel DC": 3,
+    # Materials / steel / GOES
+    "CLF": 8, "NUE": 35, "STLD": 22, "TRN": 3,
+    # Grid buildout (T12-T14)
+    "PLPC": 0.7, "NKT": 6, "VMI": 7, "ACA": 4, "AZZ": 3, "Sabre": 0.5,
+    # Defense adjacent
+    "GHM": 0.6, "ESE": 4, "ATMU": 4, "IPGP": 3, "BWXT": 12,
+    "HII": 9, "GD": 90, "CW": 17, "TDG": 90, "HEI": 35,
+}
+
+
+def market_cap_b(ticker: str, default: float = 5.0) -> float:
+    """Return estimated market cap in USD billions for a ticker (default 5B if unknown)."""
+    return MARKET_CAP_USD_B.get(ticker, default)

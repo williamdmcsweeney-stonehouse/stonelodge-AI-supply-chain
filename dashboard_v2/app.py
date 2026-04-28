@@ -43,6 +43,7 @@ from model import (
     build_tightness_scores,
     build_token_demand,
     gap_summary,
+    market_cap_b,
     power_inflection_year,
     theme_exposure_pct,
 )
@@ -117,26 +118,11 @@ NEW_LAYERS = {
 }
 
 # ═════════════════════════════════════════════════════════════════════════════
-# SIDEBAR — Scenario presets + key levers
+# TOP HEADER — primary scenario controls (used to live in the sidebar)
+# These need to be defined BEFORE run_model() so they're set up here, but
+# rendered as a horizontal pill bar above the tabs further down the file.
 # ═════════════════════════════════════════════════════════════════════════════
-st.sidebar.markdown("# AI Infra Supply Chain")
-st.sidebar.caption("v2 · Stonehouse Capital · 2026-04-28")
 
-# ── MACRO SCENARIO (drives the GW gap framework) ─────────────────────────────
-st.sidebar.markdown("### Macro Scenario")
-st.sidebar.caption("Drives the Demand vs Supply gap (efficiency + supply phase rates).")
-macro_name = st.sidebar.radio(
-    "macro",
-    list(MACRO_SCENARIOS.keys()),
-    label_visibility="collapsed",
-    help="Per colleague's v4_2 Efficiency Overlay. "
-         "Bear = fast efficiency (gap closes ~2032). Bull = slow efficiency (gap never closes).",
-)
-macro_cfg = MACRO_SCENARIOS[macro_name]
-st.sidebar.caption(f"_{macro_cfg['note']}_")
-
-# ── DEMAND SCENARIO (drives token demand from Excel) ─────────────────────────
-st.sidebar.markdown("### Demand Scenario")
 PRESETS = {
     "Stonehouse Base": {
         "scenario": "Base", "ai_users": 1100, "agent_mult": 1.0, "humanoid": 1.0,
@@ -155,10 +141,55 @@ PRESETS = {
         "enterprise": 1.0, "doubling": 1.75, "util_2025": 0.067,
     },
 }
-preset_name = st.sidebar.radio(
-    "scenario", list(PRESETS.keys()), label_visibility="collapsed",
-)
+
+# Top header bar — bull/base/bear pills directly on page (no sidebar dig)
+hdr_left, hdr_right = st.columns([1.3, 1.7])
+with hdr_left:
+    st.markdown(
+        "<div style='font-size:11px; color:#8893a8; text-transform:uppercase; "
+        "letter-spacing:0.08em; margin-bottom:2px;'>Macro Scenario · Demand vs Supply gap</div>",
+        unsafe_allow_html=True,
+    )
+    macro_name = st.radio(
+        "macro_top",
+        list(MACRO_SCENARIOS.keys()),
+        horizontal=True,
+        label_visibility="collapsed",
+        key="macro_name_top",
+        help="Per colleague's v4_2 Efficiency Overlay. "
+             "Bear = fast efficiency (gap closes ~2032). Bull = slow efficiency (gap never closes).",
+    )
+with hdr_right:
+    st.markdown(
+        "<div style='font-size:11px; color:#8893a8; text-transform:uppercase; "
+        "letter-spacing:0.08em; margin-bottom:2px;'>Demand Preset · token + utilization mix</div>",
+        unsafe_allow_html=True,
+    )
+    preset_name = st.radio(
+        "preset_top",
+        list(PRESETS.keys()),
+        horizontal=True,
+        label_visibility="collapsed",
+        key="preset_name_top",
+    )
+
+macro_cfg = MACRO_SCENARIOS[macro_name]
 preset = PRESETS[preset_name]
+st.caption(
+    f"<span style='color:#8893a8'>"
+    f"<b style='color:#fff'>{macro_name}</b> · {macro_cfg['note']} &nbsp;|&nbsp; "
+    f"<b style='color:#fff'>{preset_name}</b>"
+    f"</span>",
+    unsafe_allow_html=True,
+)
+st.markdown("<div style='border-bottom:1px solid #2a2f3d; margin:8px 0 14px 0'></div>", unsafe_allow_html=True)
+
+# ═════════════════════════════════════════════════════════════════════════════
+# SIDEBAR — fine-tune levers (advanced)
+# ═════════════════════════════════════════════════════════════════════════════
+st.sidebar.markdown("# AI Infra Supply Chain")
+st.sidebar.caption("v2 · Stonehouse Capital · 2026-04-28")
+st.sidebar.caption("_Macro & demand pills are at the top of the main page._")
 
 st.sidebar.markdown("### Fleet Calibration")
 anchor_gw = st.sidebar.slider(
@@ -276,8 +307,20 @@ inflection = power_inflection_year(inf_df)
 gap_stats = gap_summary(macro_df)
 
 # ═════════════════════════════════════════════════════════════════════════════
-# HEADER + HEADLINE METRICS
+# TABS — split the page into Flow & Macro / Bottleneck Map / Easiest Bets
+# Each tab block uses manual __enter__/__exit__ so we don't have to reindent
+# 800+ lines of legacy rendering code. Streamlit's DeltaGenerator stack is
+# updated by these calls the same way `with tab_x:` would.
 # ═════════════════════════════════════════════════════════════════════════════
+tab_flow, tab_map, tab_bets = st.tabs([
+    "🌊 Flow & Macro",
+    "🗺️ Bottleneck Map",
+    "💰 Easiest Bets",
+])
+
+# ── TAB 1: Flow & Macro ──────────────────────────────────────────────────────
+tab_flow.__enter__()
+
 st.markdown(
     "## AI Infrastructure Supply Chain "
     f"&nbsp;<span style='font-size:14px;color:#8893a8'>· {macro_name} × {preset_name}</span>",
@@ -768,6 +811,165 @@ st.caption(
 
 
 # ═════════════════════════════════════════════════════════════════════════════
+# BUBBLE EXPLORER — interactive stock map per drill-down stage
+# Bubble size = market cap; X = AI exposure %; Y = composite tightness × tier
+# weight; color = supply-chain track. Hover gives the rationale.
+# ═════════════════════════════════════════════════════════════════════════════
+st.markdown("---")
+st.markdown(f"### Stocks in this stage · **{sel['label']}** · {year}")
+st.caption(
+    "Each bubble = one ticker exposed to this stage's layers. **Size = market cap** "
+    "(USD billions, mid-2026 estimate — refresh from Bloomberg before sizing positions). "
+    "**X = AI-infra revenue exposure**. **Y = layer tightness × role weight** (P=1.0, S=0.6, K=0.3) "
+    "— picks the strongest single-layer exposure within this stage. **Color = supply-chain track**. "
+    "Hover for rationale."
+)
+
+# Map drill-down stage key → list of supply-chain layers
+STAGE_TO_LAYERS = {
+    "USERS": [],
+    "TOKENS": [],
+    "COMPUTE": [
+        "Fab Equipment", "EUV Mask Inspection / Pellicles", "EDA Tools / IP",
+        "CoWoS / Advanced Packaging", "HBM Hybrid Bonding",
+        "GPU / AI Accelerators", "HBM Memory", "CPU / Host Processors",
+        "Server DRAM", "Advanced Substrates / PCB", "ABF Dielectric Film",
+    ],
+    "HARDWARE": [
+        "Scale-Out Networking Silicon", "Co-Packaged Optics (CPO)",
+        "DPU / SmartNICs", "Optical Transceivers",
+        "Active Electrical Cables (AEC)", "Fiber / Physical Cabling",
+        "High-Speed Connectors",
+    ],
+    "FACILITY": [
+        "Liquid Cooling", "UPS / Backup Power", "Data Center Construction",
+        "DC REITs / Co-lo", "Skilled Electrical Labor",
+    ],
+    "ENERGY": [
+        "Power Generation", "Grid Interconnect Queue", "GOES (Electrical Steel)",
+        "Large Power Transformers (LPT)", "Distribution Transformers",
+        "Line Hardware & HVDC Cable", "Steel Poles & Towers", "Galvanizing",
+        "Defense Adjacent",
+    ],
+}
+
+stage_layers = [L for L in STAGE_TO_LAYERS.get(drill, []) if L in tight_df.columns]
+if not stage_layers:
+    st.info("This stage is demand-side (users/tokens) — no supply layers attach. Pick COMPUTE / HARDWARE / FACILITY / ENERGY.")
+else:
+    _tier_w = {"P": 1.0, "S": 0.6, "K": 0.3}
+    _bubble_rows = []
+    _seen = set()
+    for layer in stage_layers:
+        layer_score = float(tight_df.loc[year, layer])
+        for ticker, tier, why in LAYER_NAMES_DETAIL.get(layer, []):
+            if ticker in _seen:
+                # If a ticker appears in multiple layers in this stage, keep the strongest
+                existing = next(r for r in _bubble_rows if r["ticker"] == ticker)
+                this_y = layer_score * _tier_w.get(tier, 0.3)
+                if this_y > existing["y"]:
+                    existing.update({
+                        "y": this_y, "layer": layer, "tier": tier, "why": why,
+                        "tightness": layer_score,
+                    })
+                continue
+            _seen.add(ticker)
+            track = LAYER_TIER.get(layer, ("—", "—"))[1]
+            _bubble_rows.append({
+                "ticker": ticker,
+                "layer": layer,
+                "tier": tier,
+                "why": why,
+                "tightness": layer_score,
+                "y": layer_score * _tier_w.get(tier, 0.3),
+                "exposure": theme_exposure_pct(ticker),
+                "mcap": market_cap_b(ticker),
+                "track": track,
+                "monopoly": ticker in MONOPOLY_TICKERS,
+                "pivotal": ticker in PIVOTAL_TICKERS,
+            })
+
+    bubble_df = pd.DataFrame(_bubble_rows)
+
+    # Build hover text — full rationale + market cap + flags
+    def _fmt_mcap(b):
+        if b >= 1000: return f"${b/1000:.2f}T"
+        if b >= 10:   return f"${b:.0f}B"
+        return f"${b:.1f}B"
+
+    bubble_df["hover"] = bubble_df.apply(
+        lambda r: (
+            f"<b>{'★ ' if r['pivotal'] else ''}{r['ticker']}</b>"
+            f"{' · SOLE-SOURCE' if r['monopoly'] else ''}<br>"
+            f"<b>Layer:</b> {r['layer']} ({r['tier']}-tier)<br>"
+            f"<b>Market cap:</b> {_fmt_mcap(r['mcap'])}<br>"
+            f"<b>AI exposure:</b> {r['exposure']}%<br>"
+            f"<b>Layer tightness {year}:</b> {r['tightness']:.0f}/100<br>"
+            f"<b>Score (tightness × role):</b> {r['y']:.0f}<br><br>"
+            f"<i>{r['why']}</i>"
+        ),
+        axis=1,
+    )
+
+    bubble_fig = go.Figure()
+    for track, color in TRACK_COLOR.items():
+        sub = bubble_df[bubble_df["track"] == track]
+        if sub.empty:
+            continue
+        bubble_fig.add_trace(go.Scatter(
+            x=sub["exposure"],
+            y=sub["y"],
+            mode="markers+text",
+            marker=dict(
+                size=np.sqrt(sub["mcap"]) * 4 + 10,
+                sizemode="diameter",
+                color=color,
+                opacity=0.75,
+                line=dict(width=1.2, color="rgba(255,255,255,0.55)"),
+            ),
+            text=sub["ticker"],
+            textposition="middle center",
+            textfont=dict(size=9, color="#fff"),
+            name=track,
+            customdata=sub["hover"],
+            hovertemplate="%{customdata}<extra></extra>",
+        ))
+    bubble_fig.add_vline(x=50, line_color="rgba(255,255,255,0.15)", line_dash="dot",
+                         annotation_text="50% exposure", annotation_position="top")
+    bubble_fig.add_hline(y=70, line_color="rgba(231,76,60,0.30)", line_dash="dot",
+                         annotation_text="tight", annotation_position="right")
+    bubble_fig.update_layout(
+        height=520,
+        paper_bgcolor="#0e1117", plot_bgcolor="#0e1117",
+        font_color="white",
+        xaxis=dict(
+            title="AI-infra revenue exposure (%)",
+            range=[-3, 105], gridcolor="rgba(255,255,255,0.08)",
+        ),
+        yaxis=dict(
+            title=f"Tightness × role weight ({year})",
+            range=[-3, 105], gridcolor="rgba(255,255,255,0.08)",
+        ),
+        legend=dict(orientation="h", y=-0.12),
+        margin=dict(t=10, b=60, l=60, r=20),
+        hoverlabel=dict(bgcolor="#161a26", font_size=11, font_color="white", bordercolor="#2a2f3d"),
+    )
+    st.plotly_chart(bubble_fig, width='stretch', key=f"bubble_{drill}_{year}")
+    st.caption(
+        f"_{len(bubble_df)} tickers across {len(stage_layers)} layer(s) in this stage. "
+        f"Top-right quadrant (high exposure × high tightness) is where mispricing concentrates. "
+        f"Bubble area scales with √(market cap) so micro-caps stay visible against mega-caps._"
+    )
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Close TAB 1 (Flow & Macro) — open TAB 2 (Bottleneck Map)
+# ═════════════════════════════════════════════════════════════════════════════
+tab_flow.__exit__(None, None, None)
+tab_map.__enter__()
+
+
+# ═════════════════════════════════════════════════════════════════════════════
 # SECTION 1: BOTTLENECK MAP — 29 layers (T1-T15) as cards arranged into 5 stage columns
 # ═════════════════════════════════════════════════════════════════════════════
 def score_to_color(s: float) -> str:
@@ -913,9 +1115,15 @@ st.plotly_chart(heat_fig, width='stretch')
 
 
 # ═════════════════════════════════════════════════════════════════════════════
+# Close TAB 2 (Bottleneck Map) — open TAB 3 (Easiest Bets)
+# ═════════════════════════════════════════════════════════════════════════════
+tab_map.__exit__(None, None, None)
+tab_bets.__enter__()
+
+
+# ═════════════════════════════════════════════════════════════════════════════
 # SECTION 3: EASIEST BETS — mispricing surface
 # ═════════════════════════════════════════════════════════════════════════════
-st.markdown("---")
 st.markdown("### Easiest Bets · Tightness × Tier × Layer Coverage × Theme Exposure")
 # Caption rendered after bets_df is built (needs len() of filtered + full sets)
 _caption_placeholder = st.empty()
@@ -1201,6 +1409,12 @@ st.dataframe(
         "Tightness 2027-30": st.column_config.NumberColumn(format="%.0f"),
     },
 )
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Close TAB 3 (Easiest Bets) — render footer at page level (outside tabs)
+# ═════════════════════════════════════════════════════════════════════════════
+tab_bets.__exit__(None, None, None)
 
 
 # ═════════════════════════════════════════════════════════════════════════════
