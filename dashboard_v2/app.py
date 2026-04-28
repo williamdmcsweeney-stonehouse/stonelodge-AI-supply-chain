@@ -182,7 +182,7 @@ doubling = st.sidebar.slider(
 )
 util_2025 = st.sidebar.slider(
     "Inference utilization 2025 %",
-    1.0, 20.0, preset["util_2025"] * 100, 0.5,
+    1.0, 20.0, round(preset["util_2025"] * 100, 1), 0.1,
     help="Pct of deployed AI fleet doing active inference. Used by layer-level model only. ~6.7% historical.",
 ) / 100
 
@@ -430,7 +430,7 @@ with m5:
               delta=f"{fwd_avg.max():.0f}/100", delta_color="off")
 with m6:
     n_pegged = (tight_df.loc[2027:2030].max() >= 90).sum()
-    st.metric("Layers pegged 2027-30", f"{n_pegged}", delta="of 22")
+    st.metric("Layers pegged 2027-30", f"{n_pegged}", delta=f"of {len(LAYERS)}")
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -467,12 +467,96 @@ if use_vintaged and "fleet_blended_eff_tokens_per_kwh" in inf_df.columns:
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# YEAR SCRUBBER (drives the bottleneck map)
+# YEAR SCRUBBER (drives the flow visualization + bottleneck map)
 # ═════════════════════════════════════════════════════════════════════════════
 st.markdown("---")
 year = st.slider(
     "**Map Year** — drag to see how bottlenecks shift over the cycle",
     min_value=2025, max_value=2042, value=2028, step=1,
+)
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# FLOW VISUALIZATION — How AI demand becomes physical infrastructure
+# Reads the selected year from the scrubber above. Shows the cause-and-effect
+# chain at a glance: users → tokens → compute → hardware → facility → power.
+# ═════════════════════════════════════════════════════════════════════════════
+st.markdown(f"### How AI demand becomes physical infrastructure · {year}")
+st.caption(
+    "Read left to right. Each box is the next step the demand has to pass through to "
+    "actually run. The supply chain bottlenecks below are which of these steps can't keep up."
+)
+
+
+def _fmt_big(v: float) -> str:
+    """Format a number with K/M/B/T suffix."""
+    av = abs(v)
+    if av >= 1e12: return f"{v/1e12:.1f}T"
+    if av >= 1e9:  return f"{v/1e9:.1f}B"
+    if av >= 1e6:  return f"{v/1e6:.1f}M"
+    if av >= 1e3:  return f"{v/1e3:.1f}K"
+    if av >= 10:   return f"{v:.0f}"
+    return f"{v:.1f}"
+
+
+# Pull live values for the selected year
+y_users_M    = ai_users * (1 + 0.30) ** (year - 2025)  # ~30%/yr user growth assumption
+y_tokens_T   = float(tok_df.loc[year, "total_T"])
+y_compute_gw = float(inf_df.loc[year, "total_compute_gw"])
+y_servers_M  = float(inf_df.loc[year, "server_count_M"])
+y_power_gw   = float(inf_df.loc[year, "power_total_gw"])
+y_twh_yr     = y_power_gw * 8760 * 0.80 / 1000  # 80% load factor → TWh/yr
+
+flow_stages = [
+    ("USERS", _fmt_big(y_users_M * 1e6), "AI users worldwide", "#27ae60", "silicon"),
+    ("TOKENS", f"{y_tokens_T:.0f}T/day", "tokens generated", "#16a085", "silicon"),
+    ("COMPUTE", f"{y_compute_gw:.0f} GW", "active compute", "#8e44ad", "silicon"),
+    ("HARDWARE", f"{_fmt_big(y_servers_M * 1e6)} svrs", "GPU + memory + network", "#2980b9", "silicon"),
+    ("FACILITY", f"{y_power_gw:.0f} GW", "data center capacity", "#16a085", "dc"),
+    ("ENERGY", f"{y_twh_yr:.0f} TWh/yr", f"power drawn ({year})", "#c0392b", "power"),
+]
+
+# Build the flow as flexbox HTML — chevron-shaped boxes connected by arrows
+flow_html = """
+<style>
+.flow-row {
+  display: flex; align-items: stretch; gap: 0; margin: 12px 0 24px 0;
+  width: 100%; overflow-x: auto;
+}
+.flow-stage {
+  flex: 1; min-width: 0; padding: 14px 16px 14px 22px;
+  position: relative; color: #fff;
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%, 14px 50%);
+}
+.flow-stage:first-child {
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%);
+  padding-left: 16px;
+}
+.flow-stage:last-child {
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 14px 50%);
+}
+.flow-label { font-size: 10px; font-weight: 700; letter-spacing: 0.10em;
+              text-transform: uppercase; color: rgba(255,255,255,0.85); margin-bottom: 4px; }
+.flow-value { font-size: 22px; font-weight: 800; color: #fff; line-height: 1.05; }
+.flow-sub   { font-size: 10px; color: rgba(255,255,255,0.85); margin-top: 4px; line-height: 1.25; }
+</style>
+<div class='flow-row'>
+"""
+for label, value, sub, color, _track in flow_stages:
+    flow_html += (
+        f"<div class='flow-stage' style='background:{color}'>"
+        f"<div class='flow-label'>{label}</div>"
+        f"<div class='flow-value'>{value}</div>"
+        f"<div class='flow-sub'>{sub}</div>"
+        "</div>"
+    )
+flow_html += "</div>"
+st.markdown(flow_html, unsafe_allow_html=True)
+
+st.caption(
+    "**The compounding ratio:** every doubling of users at the left end forces ~roughly a doubling "
+    "of every stage to the right. The bottleneck cards below show which of those doublings are "
+    "physically deliverable on time, and which become pricing-power moments for the suppliers."
 )
 
 
