@@ -478,13 +478,16 @@ year = st.slider(
 
 # ═════════════════════════════════════════════════════════════════════════════
 # FLOW VISUALIZATION — How AI demand becomes physical infrastructure
-# Reads the selected year from the scrubber above. Shows the cause-and-effect
-# chain at a glance: users → tokens → compute → hardware → facility → power.
+# Three layers of interactivity on top of the year scrubber:
+#   1. Hover tooltips on each chevron stage (CSS, no Python round-trip)
+#   2. Stage-picker radio that opens a drill-down panel with linked tiers + tickers
+#   3. Plotly Sankey showing multi-source flow with native hover/zoom/drag
 # ═════════════════════════════════════════════════════════════════════════════
 st.markdown(f"### How AI demand becomes physical infrastructure · {year}")
 st.caption(
     "Read left to right. Each box is the next step the demand has to pass through to "
-    "actually run. The supply chain bottlenecks below are which of these steps can't keep up."
+    "actually run. **Hover** any box for the explainer · **pick a stage below** to drill in · "
+    "**scroll down** for the multi-source Sankey flow (drag/zoom/hover)."
 )
 
 
@@ -499,35 +502,97 @@ def _fmt_big(v: float) -> str:
     return f"{v:.1f}"
 
 
-# Pull live values for the selected year
-y_users_M    = ai_users * (1 + 0.30) ** (year - 2025)  # ~30%/yr user growth assumption
-y_tokens_T   = float(tok_df.loc[year, "total_T"])
-y_compute_gw = float(inf_df.loc[year, "total_compute_gw"])
-y_servers_M  = float(inf_df.loc[year, "server_count_M"])
-y_power_gw   = float(inf_df.loc[year, "power_total_gw"])
-y_twh_yr     = y_power_gw * 8760 * 0.80 / 1000  # 80% load factor → TWh/yr
+# Pull live values for selected year + 2025 baseline (for delta)
+def _vals(yr):
+    return {
+        "users":   ai_users * 1e6 * (1.30 ** (yr - 2025)),
+        "tokens":  float(tok_df.loc[yr, "total_T"]),
+        "compute": float(inf_df.loc[yr, "total_compute_gw"]),
+        # HBM TB grows monotonically with compute (GPU memory wall thesis).
+        # Server count is intentionally NOT used here because rack density
+        # rises so fast that unit count can decline while capability grows —
+        # confusing for a left-to-right narrative read.
+        "memory":  float(inf_df.loc[yr, "hbm_tb"]),
+        "power":   float(inf_df.loc[yr, "power_total_gw"]),
+    }
 
-flow_stages = [
-    ("USERS", _fmt_big(y_users_M * 1e6), "AI users worldwide", "#27ae60", "silicon"),
-    ("TOKENS", f"{y_tokens_T:.0f}T/day", "tokens generated", "#16a085", "silicon"),
-    ("COMPUTE", f"{y_compute_gw:.0f} GW", "active compute", "#8e44ad", "silicon"),
-    ("HARDWARE", f"{_fmt_big(y_servers_M * 1e6)} svrs", "GPU + memory + network", "#2980b9", "silicon"),
-    ("FACILITY", f"{y_power_gw:.0f} GW", "data center capacity", "#16a085", "dc"),
-    ("ENERGY", f"{y_twh_yr:.0f} TWh/yr", f"power drawn ({year})", "#c0392b", "power"),
+vY = _vals(year)
+v0 = _vals(2025)
+y_twh_yr = vY["power"] * 8760 * 0.80 / 1000  # 80% load factor → TWh/yr
+
+# Stage definitions with full tooltip + drill-down content.
+# Each stage: (key, label, value, sub, color, track, tooltip_lines, linked_layers, top_tickers)
+STAGE_DEFS = [
+    {
+        "key": "USERS", "label": "USERS",
+        "value": _fmt_big(vY["users"]), "sub": "AI users worldwide",
+        "color": "#27ae60", "track": "demand",
+        "explain": "Humans + agents + robots generating AI requests. The user count compounds at ~30%/yr through 2030 in the base case. This is the demand-side root cause of every downstream bottleneck.",
+        "v0": _fmt_big(v0["users"]), "delta_pct": (vY["users"]/v0["users"] - 1) * 100,
+        "linked_tiers": ["T6 Hyperscalers (demand-side, not modeled as supply)"],
+        "top_tickers": [("GOOG/MSFT/META", "frontier model labs"), ("AMZN/AAPL", "consumer + cloud distribution")],
+    },
+    {
+        "key": "TOKENS", "label": "TOKENS",
+        "value": f"{vY['tokens']:.0f}T/day", "sub": "tokens generated",
+        "color": "#16a085", "track": "demand",
+        "explain": f"Each user request breaks into ~1,000 tokens. {vY['tokens']:.0f}T/day = {vY['tokens']*1e12/86400/1e9:.1f}B tokens/sec globally. ~99.9% are cloud-served; edge tokens are tiny but growing with humanoid robotics.",
+        "v0": f"{v0['tokens']:.0f}T/day", "delta_pct": (vY["tokens"]/v0["tokens"] - 1) * 100,
+        "linked_tiers": ["T6 demand → drives all downstream"],
+        "top_tickers": [("Retail", f"{tok_df.loc[year,'retail_T']:.0f}T"), ("Enterprise", f"{tok_df.loc[year,'enterprise_T']:.0f}T"), ("Robotics", f"{tok_df.loc[year,'robotics_cloud_T']+tok_df.loc[year,'robotics_edge_T']:.1f}T")],
+    },
+    {
+        "key": "COMPUTE", "label": "COMPUTE",
+        "value": f"{vY['compute']:.0f} GW", "sub": "active compute",
+        "color": "#8e44ad", "track": "silicon",
+        "explain": f"GW of running AI compute hardware. Translates tokens/day into chip throughput via fleet-blended efficiency ({inf_df.loc[year,'fleet_blended_eff_tokens_per_kwh']/1e6:.1f}M tokens/kWh in {year}). The frontier doubles every ~2yr; the deployed fleet trails by ~6yr.",
+        "v0": f"{v0['compute']:.0f} GW", "delta_pct": (vY["compute"]/max(v0["compute"],0.01) - 1) * 100,
+        "linked_tiers": ["T2 Semicon Equipment (Fab, EUV, Hybrid Bonding)", "T3 EDA + Design", "T4 Foundries / Memory / Packaging"],
+        "top_tickers": [("NVDA", "GPU dominant"), ("AVGO", "custom XPU"), ("TSM", "leading-edge foundry"), ("BESI", "hybrid bonding"), ("ASML", "EUV monopoly")],
+    },
+    {
+        "key": "HARDWARE", "label": "HARDWARE",
+        "value": f"{vY['memory']/1000:.1f} PB", "sub": "HBM memory installed",
+        "color": "#2980b9", "track": "silicon",
+        "explain": f"Petabytes of high-bandwidth memory wired to the GPUs. Memory bandwidth — not raw compute — is the real bottleneck for inference throughput. HBM tightness drives the supply chain story (Ajinomoto ABF, BESI hybrid bonding, MU/Hynix/Samsung).",
+        "v0": f"{v0['memory']/1000:.1f} PB", "delta_pct": (vY["memory"]/max(v0["memory"],0.01) - 1) * 100,
+        "linked_tiers": ["T4 HBM / Substrates / ABF Film", "T5 Networking + Optics + Connectors + Fiber"],
+        "top_tickers": [("MU", "HBM US monopoly"), ("Ajinomoto", "ABF film monopoly"), ("APH", "high-speed connectors"), ("COHR/LITE", "800G/1.6T optics"), ("GLW", "fiber")],
+    },
+    {
+        "key": "FACILITY", "label": "FACILITY",
+        "value": f"{vY['power']:.0f} GW", "sub": "data center capacity",
+        "color": "#16a085", "track": "dc",
+        "explain": f"Operational DC power capacity to host the hardware. Includes IT load + cooling + losses. {inf_df.loc[year,'cooling_gw']:.0f} GW of that is dedicated cooling. Build cycle 30-48 months — labor and grid interconnect are the binding constraints.",
+        "v0": f"{v0['power']:.0f} GW", "delta_pct": (vY["power"]/v0["power"] - 1) * 100,
+        "linked_tiers": ["T7 DC Real Estate & Build", "T8 Cooling & Power Distribution"],
+        "top_tickers": [("EQIX/DLR", "co-lo REITs"), ("VRT", "liquid cooling leader"), ("FIX/PWR", "DC contractors"), ("ETN", "power distribution")],
+    },
+    {
+        "key": "ENERGY", "label": "ENERGY",
+        "value": f"{y_twh_yr:.0f} TWh/yr", "sub": f"grid power drawn",
+        "color": "#c0392b", "track": "power",
+        "explain": f"Electricity actually consumed. {vY['power']:.0f} GW × 8760h × 80% load factor = {y_twh_yr:.0f} TWh/yr — roughly {y_twh_yr/4000*100:.0f}% of US 2024 grid output. Generation, GOES (sole-source US), transformers, and grid interconnect are the slow-build chokepoints.",
+        "v0": f"{v0['power']*8760*0.80/1000:.0f} TWh/yr", "delta_pct": (vY["power"]/v0["power"] - 1) * 100,
+        "linked_tiers": ["T9 On-site Power & Backup", "T11 Transformers & GOES", "T12-T14 Line Hardware / Poles / Galvanizing", "T15 Defense Adjacent"],
+        "top_tickers": [("GEV/SE/Hitachi", "turbines + grid"), ("CEG/TLN", "behind-the-meter nuclear"), ("CLF", "GOES sole-source US"), ("VMI/ACA/AZZ", "poles + galvanizing duopoly")],
+    },
 ]
 
-# Build the flow as flexbox HTML — chevron-shaped boxes connected by arrows
-flow_html = """
+# CSS for chevron flow with hover tooltips
+flow_css = """
 <style>
 .flow-row {
-  display: flex; align-items: stretch; gap: 0; margin: 12px 0 24px 0;
+  display: flex; align-items: stretch; gap: 0; margin: 12px 0 8px 0;
   width: 100%; overflow-x: auto;
 }
 .flow-stage {
   flex: 1; min-width: 0; padding: 14px 16px 14px 22px;
-  position: relative; color: #fff;
+  position: relative; color: #fff; cursor: help;
   clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%, 14px 50%);
+  transition: filter 0.15s ease;
 }
+.flow-stage:hover { filter: brightness(1.18); }
 .flow-stage:first-child {
   clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%);
   padding-left: 16px;
@@ -539,24 +604,153 @@ flow_html = """
               text-transform: uppercase; color: rgba(255,255,255,0.85); margin-bottom: 4px; }
 .flow-value { font-size: 22px; font-weight: 800; color: #fff; line-height: 1.05; }
 .flow-sub   { font-size: 10px; color: rgba(255,255,255,0.85); margin-top: 4px; line-height: 1.25; }
+.flow-delta {
+  position: absolute; top: 6px; right: 18px;
+  font-size: 9px; font-weight: 700; letter-spacing: 0.04em;
+  background: rgba(0,0,0,0.30); padding: 1px 6px; border-radius: 8px;
+  color: rgba(255,255,255,0.95);
+}
 </style>
-<div class='flow-row'>
 """
-for label, value, sub, color, _track in flow_stages:
+
+flow_html = flow_css + "<div class='flow-row'>"
+for s in STAGE_DEFS:
+    delta = s["delta_pct"]
+    delta_str = f"+{delta:.0f}%" if delta >= 0 else f"{delta:.0f}%"
+    # Native HTML title tooltip — keep on one line (no \n\n which Streamlit's markdown renderer converts to <p>)
+    tooltip = (
+        f"{s['label']} ({year}) — {s['explain']} "
+        f"·· 2025: {s['v0']} → {year}: {s['value']} ({delta_str})"
+    ).replace('"', "'")  # safety: escape any embedded double-quotes in the explanation
     flow_html += (
-        f"<div class='flow-stage' style='background:{color}'>"
-        f"<div class='flow-label'>{label}</div>"
-        f"<div class='flow-value'>{value}</div>"
-        f"<div class='flow-sub'>{sub}</div>"
+        f"<div class='flow-stage' style='background:{s['color']}' title=\"{tooltip}\">"
+        f"<div class='flow-delta'>{delta_str}</div>"
+        f"<div class='flow-label'>{s['label']}</div>"
+        f"<div class='flow-value'>{s['value']}</div>"
+        f"<div class='flow-sub'>{s['sub']}</div>"
         "</div>"
     )
 flow_html += "</div>"
-st.markdown(flow_html, unsafe_allow_html=True)
+# Important: avoid blank lines inside flow_html — st.markdown's preprocessor turns
+# them into <p> tags that escape angle brackets in attribute values.
+st.markdown(flow_html.replace("\n\n", "\n"), unsafe_allow_html=True)
+
+# ── Drill-down picker — pick a stage to expand details ─────────────────────────
+drill = st.radio(
+    "Drill into a stage",
+    options=[s["key"] for s in STAGE_DEFS],
+    horizontal=True, label_visibility="collapsed",
+    key="flow_drill",
+)
+sel = next(s for s in STAGE_DEFS if s["key"] == drill)
+
+dc1, dc2, dc3 = st.columns([1.0, 1.4, 1.6])
+with dc1:
+    st.markdown(
+        f"<div style='background:{sel['color']}; padding:14px; border-radius:8px; color:#fff;'>"
+        f"<div style='font-size:10px; letter-spacing:0.1em; opacity:0.85'>{sel['label']} · {year}</div>"
+        f"<div style='font-size:28px; font-weight:800; margin-top:4px'>{sel['value']}</div>"
+        f"<div style='font-size:11px; opacity:0.85; margin-top:2px'>{sel['sub']}</div>"
+        f"<div style='font-size:11px; margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.20);'>"
+        f"<b>2025:</b> {sel['v0']}<br/>"
+        f"<b>Δ since 2025:</b> {'+' if sel['delta_pct']>=0 else ''}{sel['delta_pct']:.0f}%"
+        f"</div></div>",
+        unsafe_allow_html=True,
+    )
+with dc2:
+    st.markdown(f"**What it is**\n\n{sel['explain']}")
+    st.markdown(f"**Linked supply-chain tiers**")
+    for t in sel["linked_tiers"]:
+        st.markdown(f"- {t}")
+with dc3:
+    st.markdown("**Primary tickers in this stage**")
+    for tk, why in sel["top_tickers"]:
+        st.markdown(f"- **{tk}** — {why}")
+
+# ── Plotly Sankey — multi-source flow with native interactivity ────────────────
+st.markdown("#### Multi-source flow · Sankey · drag / hover / zoom")
+st.caption(
+    "Where the demand actually comes from and how it propagates. Hover any link to see "
+    "real values. The widths are normalized to share-of-total at each stage."
+)
+
+# Build sankey with normalized share-of-total widths (so widths are comparable across stages)
+retail_T   = float(tok_df.loc[year, "retail_T"])
+ent_T      = float(tok_df.loc[year, "enterprise_T"])
+robo_clT   = float(tok_df.loc[year, "robotics_cloud_T"])
+robo_edT   = float(tok_df.loc[year, "robotics_edge_T"])
+total_T    = max(retail_T + ent_T + robo_clT + robo_edT, 0.01)
+
+# Each link scaled to 100 = full demand at that stage
+sk_retail = (retail_T   / total_T) * 100
+sk_ent    = (ent_T      / total_T) * 100
+sk_robo_c = (robo_clT   / total_T) * 100
+sk_robo_e = (robo_edT   / total_T) * 100
+sk_cloud  = (retail_T + ent_T + robo_clT) / total_T * 100
+sk_edge   = (robo_edT) / total_T * 100
+
+# Compute through DC through power — these always carry ~100% of demand
+sk_compute_in  = sk_cloud + sk_edge * 0.05  # edge mostly stays edge; tiny cloud spillover
+sk_dc_in       = sk_compute_in
+sk_power_in    = sk_dc_in
+
+sk_node_labels = [
+    f"Retail Users ({retail_T:.0f}T tok/day)",            # 0 green
+    f"Enterprise + Agents ({ent_T:.0f}T tok/day)",        # 1 green
+    f"Robotics ({robo_clT+robo_edT:.2f}T tok/day)",       # 2 green
+    f"Cloud Tokens ({retail_T+ent_T+robo_clT:.0f}T)",     # 3 teal
+    f"Edge Tokens ({robo_edT:.2f}T)",                     # 4 teal
+    f"Active Compute ({vY['compute']:.0f} GW)",           # 5 purple
+    f"DC Capacity ({vY['power']:.0f} GW)",                # 6 blue
+    f"Power Drawn ({y_twh_yr:.0f} TWh/yr)",               # 7 red
+]
+sk_node_colors = ["#27ae60", "#27ae60", "#27ae60",
+                  "#16a085", "#16a085",
+                  "#8e44ad", "#2980b9", "#c0392b"]
+
+sk_sources = [0, 1, 2, 2, 3, 4, 5, 6]
+sk_targets = [3, 3, 3, 4, 5, 5, 6, 7]
+sk_values  = [sk_retail, sk_ent, sk_robo_c, sk_robo_e, sk_cloud, sk_edge * 0.05, sk_dc_in, sk_power_in]
+sk_link_colors = ["rgba(39,174,96,0.35)"] * 4 + ["rgba(22,160,133,0.35)"] * 2 + ["rgba(142,68,173,0.35)", "rgba(192,57,43,0.45)"]
+sk_hover_link = [
+    f"Retail users → Cloud tokens<br>{retail_T:.1f}T tokens/day ({sk_retail:.1f}% of demand)",
+    f"Enterprise + agents → Cloud tokens<br>{ent_T:.1f}T tokens/day ({sk_ent:.1f}% of demand)",
+    f"Robotics → Cloud tokens (humanoid teleop)<br>{robo_clT:.2f}T tokens/day",
+    f"Robotics → Edge tokens (on-device)<br>{robo_edT:.2f}T tokens/day",
+    f"Cloud tokens → Active compute<br>{retail_T+ent_T+robo_clT:.0f}T tokens routed to data centers",
+    f"Edge → Cloud spillover<br>marginal cross-traffic from edge devices",
+    f"Compute → DC capacity<br>{vY['compute']:.0f} GW IT load fits in {vY['power']:.0f} GW facility (cooling overhead)",
+    f"DC → Grid power drawn<br>{y_twh_yr:.0f} TWh/yr at 80% load factor",
+]
+
+sankey_fig = go.Figure(go.Sankey(
+    arrangement="snap",
+    node=dict(
+        pad=18, thickness=22,
+        line=dict(color="#0e1117", width=0.5),
+        label=sk_node_labels,
+        color=sk_node_colors,
+        hovertemplate="<b>%{label}</b><extra></extra>",
+    ),
+    link=dict(
+        source=sk_sources, target=sk_targets, value=sk_values,
+        color=sk_link_colors,
+        customdata=sk_hover_link,
+        hovertemplate="%{customdata}<extra></extra>",
+    ),
+))
+sankey_fig.update_layout(
+    height=360,
+    paper_bgcolor="#0e1117", plot_bgcolor="#0e1117",
+    font=dict(color="#e0e3eb", size=11),
+    margin=dict(t=10, b=10, l=10, r=10),
+)
+st.plotly_chart(sankey_fig, width='stretch', key=f"sankey_{year}")
 
 st.caption(
-    "**The compounding ratio:** every doubling of users at the left end forces ~roughly a doubling "
-    "of every stage to the right. The bottleneck cards below show which of those doublings are "
-    "physically deliverable on time, and which become pricing-power moments for the suppliers."
+    "**The compounding ratio:** every doubling of users at the left forces a roughly proportional "
+    "doubling of every stage to the right. The bottleneck cards below show which of those doublings "
+    "are physically deliverable on time — and which become pricing-power moments for the suppliers."
 )
 
 
