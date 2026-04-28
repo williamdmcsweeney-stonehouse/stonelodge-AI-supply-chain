@@ -365,7 +365,7 @@ gap_fig.update_layout(
     margin=dict(t=20, b=60, l=60, r=20),
     hovermode="x unified",
 )
-st.plotly_chart(gap_fig, use_container_width=True)
+st.plotly_chart(gap_fig, width='stretch')
 
 # Capex flow expander
 with st.expander("Capex flow — what gets built ($B/yr to power & grid infrastructure)", expanded=False):
@@ -395,7 +395,7 @@ with st.expander("Capex flow — what gets built ($B/yr to power & grid infrastr
         legend=dict(orientation="h", y=-0.2),
         margin=dict(t=10, b=60, l=60, r=60),
     )
-    st.plotly_chart(cap_fig, use_container_width=True)
+    st.plotly_chart(cap_fig, width='stretch')
 
 st.markdown("---")
 st.markdown("#### Layer-level drilldown · which components hit pricing power within the gap")
@@ -463,7 +463,7 @@ if use_vintaged and "fleet_blended_eff_tokens_per_kwh" in inf_df.columns:
             legend=dict(orientation="h", y=-0.2),
             margin=dict(t=20, b=40, l=40, r=20),
         )
-        st.plotly_chart(eff_fig, use_container_width=True)
+        st.plotly_chart(eff_fig, width='stretch')
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -699,7 +699,7 @@ heat_fig.update_layout(
     yaxis=dict(tickfont=dict(color="white", size=10), automargin=True),
     margin=dict(t=30, l=10, r=10, b=10),
 )
-st.plotly_chart(heat_fig, use_container_width=True)
+st.plotly_chart(heat_fig, width='stretch')
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -841,7 +841,7 @@ def render_bet_card(row, sparkline_layer: str, layer_color: str):
         """,
         unsafe_allow_html=True,
     )
-    st.plotly_chart(spark, use_container_width=True, key=f"spark_{row['Ticker']}_{sparkline_layer}")
+    st.plotly_chart(spark, width='stretch', key=f"spark_{row['Ticker']}_{sparkline_layer}")
 
 
 for i in range(0, len(top10), 2):
@@ -930,7 +930,7 @@ st.dataframe(
     bets_df.style.background_gradient(
         cmap="Reds", subset=["Composite Score", "Tightness 2027-30", "Breadth", "Depth"]
     ),
-    use_container_width=True,
+    width='stretch',
     height=400,
     column_config={
         "★": st.column_config.TextColumn(width="small", help="Colleague's pivotal flag — sole-source / critical-path operator within its tier"),
