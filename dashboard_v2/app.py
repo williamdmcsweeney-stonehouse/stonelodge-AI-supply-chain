@@ -9,7 +9,7 @@ Layout
 - Main area (top to bottom):
     1. Headline metrics
     2. Year scrubber
-    3. Bottleneck Map — 22 layers as cards in 5 stage-columns, color-coded by tightness
+    3. Bottleneck Map — 29 layers (T1-T15) as cards across silicon/dc/power/defense tracks
     4. Tightness Heat Grid — all layers x years
     5. Easiest Bets — top-10 cards with sparklines + ranked long-tail table
 """
@@ -29,9 +29,12 @@ import streamlit as st
 
 from model import (
     LAYER_NAMES_DETAIL,
+    LAYER_TIER,
     LAYERS,
     MACRO_SCENARIOS,
     MONOPOLY_TICKERS,
+    PIVOTAL_TICKERS,
+    TRACK_COLOR,
     YEARS,
     all_tickers_with_layers,
     build_infrastructure_demand,
@@ -101,6 +104,11 @@ NEW_LAYERS = {
     "ABF Dielectric Film",
     "HBM Hybrid Bonding",
     "EUV Mask Inspection / Pellicles",
+    # Round 4 — colleague's grid-buildout pipeline + defense
+    "Line Hardware & HVDC Cable",
+    "Steel Poles & Towers",
+    "Galvanizing",
+    "Defense Adjacent",
 }
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -469,7 +477,7 @@ year = st.slider(
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# SECTION 1: BOTTLENECK MAP — 22 layers as cards arranged into 5 stage columns
+# SECTION 1: BOTTLENECK MAP — 29 layers (T1-T15) as cards arranged into 5 stage columns
 # ═════════════════════════════════════════════════════════════════════════════
 def score_to_color(s: float) -> str:
     """Tightness score → background color (gradient)."""
@@ -484,12 +492,22 @@ def score_to_color(s: float) -> str:
 def render_card(layer: str, score: float):
     color = score_to_color(score)
     primary = [n for n, t, _ in LAYER_NAMES_DETAIL.get(layer, []) if t == "P"][:3]
-    chips = " · ".join(f"<code style='background:rgba(0,0,0,0.25);padding:1px 4px;border-radius:3px'>{n}</code>" for n in primary)
+    chips = " · ".join(
+        f"<code style='background:rgba(0,0,0,0.25);padding:1px 4px;border-radius:3px'>"
+        f"{'★ ' if n in PIVOTAL_TICKERS else ''}{n}</code>"
+        for n in primary
+    )
     new_tag = "<span class='new-tag'>NEW · </span>" if layer in NEW_LAYERS else ""
+    sc_tier, sc_track = LAYER_TIER.get(layer, ("—", "—"))
+    tier_tag = (
+        f"<span style='background:rgba(0,0,0,0.35); color:#fff; font-size:9px; "
+        f"padding:1px 5px; border-radius:6px; font-weight:700; letter-spacing:0.04em; "
+        f"margin-right:5px;'>{sc_tier}</span>"
+    )
     st.markdown(
         f"""
         <div class='bottleneck-card' style='background:{color}'>
-          <div class='layer-name'>{new_tag}{layer}</div>
+          <div class='layer-name'>{tier_tag}{new_tag}{layer}</div>
           <div><span class='score-big'>{score:.0f}</span><span class='score-unit'>/100</span></div>
           <div class='chips'>{chips}</div>
         </div>
@@ -500,12 +518,17 @@ def render_card(layer: str, score: float):
 
 # Stage columns — left to right, mirrors physical-to-logical supply chain
 STAGES = [
-    ("Materials", ["GOES (Electrical Steel)"]),
-    ("Power", [
+    ("Materials", [
+        "GOES (Electrical Steel)",
+        "Galvanizing",
+    ]),
+    ("Power & Grid", [
         "Power Generation",
         "Grid Interconnect Queue",
         "Large Power Transformers (LPT)",
         "Distribution Transformers",
+        "Line Hardware & HVDC Cable",
+        "Steel Poles & Towers",
         "UPS / Backup Power",
         "Liquid Cooling",
     ]),
@@ -528,10 +551,11 @@ STAGES = [
         "Optical Transceivers",
         "Fiber / Physical Cabling",
     ]),
-    ("Facility", [
+    ("Facility & Defense", [
         "Skilled Electrical Labor",
         "Data Center Construction",
         "DC REITs / Co-lo",
+        "Defense Adjacent",
     ]),
 ]
 
@@ -539,7 +563,7 @@ st.markdown(f"### Bottleneck Map · {year}")
 st.caption(
     "Each card = a supply-chain layer. **Color = tightness** for the selected year "
     "(red = binding, green = balanced). Tickers shown are primary plays per Stonehouse research desk. "
-    "Cards tagged **NEW** were added in the April 2026 reconciliation (GOES, Labor, Grid Interconnect, LPT/Distribution split)."
+    "Cards tagged **NEW** were added in the April 2026 reconciliations: Round 3 (GOES, Labor, Grid Interconnect, LPT/Distribution split, ABF film, Hybrid Bonding, EUV Mask Inspection); Round 4 (Line Hardware & HVDC, Steel Poles & Towers, Galvanizing, Defense Adjacent)."
 )
 
 cols = st.columns([1, 2.2, 2.5, 1.8, 1.2])
@@ -648,10 +672,17 @@ def build_mispricing(_tight_df_hash, year_lo: int = 2027, year_hi: int = 2030):
 
         composite = 0.50 * breadth + 0.30 * depth + 0.20 * monopoly
 
+        # Tier + track from the supply-chain map (colleague's T1-T15 scaffolding)
+        sc_tier, sc_track = LAYER_TIER.get(primary_layer, ("—", "—"))
+        is_pivotal = ticker in PIVOTAL_TICKERS
+
         rows.append({
+            "★": "★" if is_pivotal else "",
             "Ticker": ticker,
+            "Tier": sc_tier,
+            "Track": sc_track,
             "Primary Layer": primary_layer,
-            "Tier": primary_tier,
+            "Role": primary_tier,
             "Tightness 2027-30": round(fwd[primary_layer], 1),
             "Composite Score": round(composite, 1),
             "Breadth": round(breadth, 1),
@@ -703,14 +734,24 @@ def render_bet_card(row, sparkline_layer: str, layer_color: str):
     )
 
     monopoly_badge = " · <span style='color:#ffd700; font-weight:700'>SOLE-SOURCE</span>" if row['Monopoly'] == "Y" else ""
+    pivotal_badge = "<span style='color:#ffd700; font-size:16px; margin-right:6px;'>★</span>" if row['★'] == "★" else ""
+    track_color = TRACK_COLOR.get(row['Track'], "#888")
+    track_pill = (
+        f"<span style='background:{track_color}; color:#fff; font-size:9px; "
+        f"padding:1px 6px; border-radius:8px; font-weight:700; letter-spacing:0.05em; "
+        f"text-transform:uppercase; margin-left:6px;'>{row['Tier']} · {row['Track']}</span>"
+    )
+    layer_line = (
+        f"{row['Primary Layer']} · plays {row['# Layers']} "
+        f"layer{'s' if row['# Layers'] > 1 else ''} · "
+        f"tightness {row['Tightness 2027-30']:.0f}/100{monopoly_badge}"
+    )
     st.markdown(
         f"""
         <div class='bet-card'>
           <span class='score'>{row['Composite Score']:.0f}</span>
-          <div class='ticker'>{row['Ticker']}</div>
-          <div class='layer'>{row['Primary Layer']} · Tier <b>{row['Tier']}</b> · "
-          f"plays {row['# Layers']} layer{'s' if row['# Layers']>1 else ''} · "
-          f"tightness {row['Tightness 2027-30']:.0f}/100{monopoly_badge}</div>
+          <div class='ticker'>{pivotal_badge}{row['Ticker']}{track_pill}</div>
+          <div class='layer'>{layer_line}</div>
           <div class='why'>{row['Why']}</div>
         </div>
         """,
@@ -753,10 +794,14 @@ for layer in fwd_sort.index:
     if not primaries:
         continue
     ticker, why = primaries[0]  # first primary listed = highest exposure per agent ranking
+    sc_tier, sc_track = LAYER_TIER.get(layer, ("—", "—"))
     per_layer_picks.append({
         "Layer": layer,
+        "Tier": sc_tier,
+        "Track": sc_track,
         "Tightness": round(score, 0),
         "Top Primary Play": ticker,
+        "Pivotal": ticker in PIVOTAL_TICKERS,
         "Why": why,
     })
 
@@ -771,12 +816,19 @@ for i in range(0, len(per_layer_df), n_cols):
             break
         row = per_layer_df.iloc[i + j]
         bg = score_to_color(float(row["Tightness"]))
+        track_color = TRACK_COLOR.get(row["Track"], "#888")
+        star = "<span style='color:#ffd700; margin-right:4px;'>★</span>" if row["Pivotal"] else ""
+        track_pill = (
+            f"<span style='background:{track_color}; color:#fff; font-size:9px; "
+            f"padding:1px 5px; border-radius:6px; font-weight:700; letter-spacing:0.04em; "
+            f"text-transform:uppercase; margin-left:5px;'>{row['Tier']}</span>"
+        )
         with col:
             st.markdown(
                 f"""
                 <div class='bet-card' style='border-left: 3px solid {bg}; padding: 10px 12px;'>
                   <div style='display:flex; justify-content:space-between; align-items:baseline;'>
-                    <span style='font-size:16px; font-weight:800; color:#fff;'>{row['Top Primary Play']}</span>
+                    <span style='font-size:16px; font-weight:800; color:#fff;'>{star}{row['Top Primary Play']}{track_pill}</span>
                     <span style='font-size:11px; color:#ffd700; font-weight:700;'>{int(row['Tightness'])}/100</span>
                   </div>
                   <div style='font-size:10px; color:#8893a8; margin: 2px 0 6px 0;'>{row['Layer']}</div>
@@ -797,13 +849,17 @@ st.dataframe(
     use_container_width=True,
     height=400,
     column_config={
+        "★": st.column_config.TextColumn(width="small", help="Colleague's pivotal flag — sole-source / critical-path operator within its tier"),
+        "Tier": st.column_config.TextColumn(width="small", help="Supply-chain tier T1-T15 per colleague's flow diagram"),
+        "Track": st.column_config.TextColumn(width="small", help="silicon / dc / power / defense"),
+        "Role": st.column_config.TextColumn(width="small", help="Stonehouse exposure tier on the primary layer (P = primary, S = secondary, K = known)"),
         "Why": st.column_config.TextColumn("Investment Rationale", width="large"),
         "Composite Score": st.column_config.NumberColumn(
             "Composite", format="%.0f",
             help="50% Breadth + 30% Depth + 20% Monopoly Boost",
         ),
-        "Breadth": st.column_config.NumberColumn(format="%.0f", help="Sum tightness × tier across layers (normalized)"),
-        "Depth": st.column_config.NumberColumn(format="%.0f", help="Max single-layer tightness × tier"),
+        "Breadth": st.column_config.NumberColumn(format="%.0f", help="Sum tightness × role-weight across layers (normalized)"),
+        "Depth": st.column_config.NumberColumn(format="%.0f", help="Max single-layer tightness × role-weight"),
         "Monopoly": st.column_config.TextColumn(width="small", help="Sole-source / oligopoly per Stonehouse research"),
         "Tightness 2027-30": st.column_config.NumberColumn(format="%.0f"),
     },
@@ -818,6 +874,6 @@ st.caption(
     f"Stonehouse Capital · AI Infra Supply Chain v2 · Scenario: **{preset_name}** · "
     f"Doubling: {doubling:.2f}yr · Util 2025: {util_2025*100:.1f}% · "
     f"Inflection: {inflection or 'post-2042'} · "
-    f"22 layers · {sum(len(v) for v in LAYER_NAMES_DETAIL.values())} ticker exposures · "
+    f"{len(LAYERS)} layers · T1-T15 · {sum(len(v) for v in LAYER_NAMES_DETAIL.values())} ticker exposures · "
     "calibrated 2026-04-28 (see research/assumptions_validation.md)"
 )

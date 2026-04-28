@@ -65,7 +65,7 @@ LAYERS = {
     },
     "Large Power Transformers (LPT)": {
         "unit": "GW-equiv", "color": "#c0392b",
-        "names": ["Hitachi 6501.T", "GEV (Prolec)", "SE", "HUBB", "ABB", "SPX Tech", "WEG", "POWL"],
+        "names": ["Hitachi 6501.T", "GEV (Prolec)", "SE", "HUBB", "ABB", "SPXC", "WEG", "POWL"],
         "lead_time_yrs": 3.5, "supply_growth_pct": 0.08,
         "demand_driver": "compute", "demand_scale": 0.7,
         "description": "Large power transformers + GSUs. Lead times 100-210 weeks (worsened from 128). Hitachi VA online 2028, SE Charlotte 2027. WoodMac deficit 30%→5% by 2030",
@@ -86,7 +86,7 @@ LAYERS = {
     },
     "Liquid Cooling": {
         "unit": "GW-thermal", "color": "#d35400",
-        "names": ["VRT", "MOD", "Nidec 6594.T", "Boyd (ETN)", "Munters", "SPX Tech", "Asetek", "EMR", "JCI", "TT"],
+        "names": ["VRT", "MOD", "Nidec 6594.T", "Boyd (ETN)", "Munters", "SPXC", "Asetek", "EMR", "JCI", "TT"],
         "lead_time_yrs": 0.75, "supply_growth_pct": 0.55,
         "demand_driver": "compute", "demand_scale": 0.8,
         "description": "Mandatory above 35 kW/rack; B200/GB200 builds 100% liquid by physics. Supply growth raised to 55% (VRT 2025 actuals +60% YoY in liquid)",
@@ -222,6 +222,36 @@ LAYERS = {
         "lead_time_yrs": 3.0, "supply_growth_pct": 0.10,
         "demand_driver": "compute", "demand_scale": 0.5,
         "description": "New supply land+power-gated, not capital-gated; PJM queue determines supply. 30-48mo for net-new wholesale",
+    },
+
+    # ── Grid Buildout Pipeline (T12-T14, colleague Round 4) ───────────────────
+    "Line Hardware & HVDC Cable": {
+        "unit": "M units", "color": "#5b2c6f",
+        "names": ["PLPC", "HUBB", "TEL", "Prysmian", "Nexans", "NKT", "Southwire"],
+        "lead_time_yrs": 2.5, "supply_growth_pct": 0.09,
+        "demand_driver": "capex", "demand_scale": 0.7,
+        "description": "Pole-line hardware (PLPC) + HVDC subsea/long-haul cables (NKT, Prysmian). HVDC cable order books extend through 2030; PLPC sole-source on certain hardware specs. Distinct from transformers — connects them",
+    },
+    "Steel Poles & Towers": {
+        "unit": "kt fabricated", "color": "#7b241c",
+        "names": ["VMI", "ACA", "TRN", "NUE", "STLD", "Sabre"],
+        "lead_time_yrs": 2.0, "supply_growth_pct": 0.07,
+        "demand_driver": "capex", "demand_scale": 0.6,
+        "description": "Tubular steel poles + lattice transmission towers. VMI/ACA effective duopoly on engineered transmission structures. Lead time 60-100 weeks; transmission buildout drives volume",
+    },
+    "Galvanizing": {
+        "unit": "kt coated", "color": "#641e16",
+        "names": ["AZZ", "VMI"],
+        "lead_time_yrs": 1.0, "supply_growth_pct": 0.05,
+        "demand_driver": "capex", "demand_scale": 0.5,
+        "description": "Hot-dip galvanizing for transmission structures. AZZ ~40% North American share (largest pure-play); VMI vertically integrated. Required corrosion protection for any outdoor steel. Quiet duopoly mispriced as cyclical",
+    },
+    "Defense Adjacent": {
+        "unit": "$B revenue", "color": "#1a5276",
+        "names": ["GHM", "ESE", "ATMU", "IPGP", "BWXT", "HII", "GD", "CW", "TDG", "HEI"],
+        "lead_time_yrs": 3.0, "supply_growth_pct": 0.08,
+        "demand_driver": "capex", "demand_scale": 0.4,
+        "description": "AI-driven geopolitical demand: turbine air filtration (ATMU), vacuum/EW systems (GHM), DC test/utility (ESE), naval nuclear (BWXT/HII), high-power lasers (IPGP). Compute buildout + reshoring overlap; not yet priced as AI play",
     },
 }
 
@@ -863,6 +893,11 @@ LAYER_DEMAND_COL = {
     "High-Speed Connectors": "connectors_M",
     "Data Center Construction": "construction_index",
     "DC REITs / Co-lo": "total_compute_gw",
+    # Round 4 — grid buildout pipeline + defense; all capex-driven (scales with new GW additions)
+    "Line Hardware & HVDC Cable": "construction_index",
+    "Steel Poles & Towers": "construction_index",
+    "Galvanizing": "construction_index",
+    "Defense Adjacent": "construction_index",
 }
 
 
@@ -1059,9 +1094,9 @@ LAYER_NAMES_DETAIL = {
         ("SE", "P", "Siemens Energy Charlotte NC online early 2027"),
         ("HUBB", "P", "Hubbell — utility transformer franchise"),
         ("ABB", "P", "Grid automation + transformers"),
-        ("SPX Tech", "S", "Specialty transformers"),
+        ("SPXC", "P", "SPX Technologies — transformer cores + medium-voltage switchgear; pivotal in colleague's T11"),
         ("WEG", "S", "Brazilian electric equipment"),
-        ("POWL", "S", "Powell Industries — switchgear"),
+        ("POWL", "P", "Powell Industries — switchgear; pivotal at 34.5x in colleague's T11"),
     ],
     "Distribution Transformers": [
         ("ETN", "P", "Eaton Q4 2025 backlog $19.6B; Electrical Americas $13.2B (+31%)"),
@@ -1082,6 +1117,7 @@ LAYER_NAMES_DETAIL = {
         ("CAT", "S", "Caterpillar — gensets"),
         ("Kohler", "S", "Private — gensets"),
         ("Delta 2308.TT", "S", "Taiwanese UPS"),
+        ("MPWR", "P", "Monolithic Power — on-board PMIC / 48V conversion for AI servers; pivotal at 64.4x in colleague's T3 (rack power density tailwind)"),
     ],
     "Liquid Cooling": [
         ("VRT", "P", "Vertiv — installed-base advantage; Thermokay closing"),
@@ -1089,7 +1125,7 @@ LAYER_NAMES_DETAIL = {
         ("Nidec 6594.T", "P", "Japanese cooling motors"),
         ("Boyd (ETN)", "P", "Boyd acquired by Eaton 2025 ($9.5B)"),
         ("Munters", "S", "Swedish thermal — MTRS.ST"),
-        ("SPX Tech", "S", "Specialty cooling"),
+        ("SPXC", "S", "Specialty cooling"),
         ("Asetek", "S", "Direct-to-chip cooling"),
         ("EMR", "K", "Emerson — diversified"),
         ("JCI", "K", "Johnson Controls — building HVAC"),
@@ -1140,6 +1176,7 @@ LAYER_NAMES_DETAIL = {
         ("LRCX", "P", "Lam Research — etch leader"),
         ("KLAC", "P", "KLA — process control"),
         ("ASML", "P", "EUV monopoly — separate dynamic"),
+        ("ACLS", "P", "Axcelis — ion implant; pivotal at 35.3x in colleague's T2 (memory + power-device tailwind)"),
         ("TEL 8035.T", "S", "Tokyo Electron — etch/dep"),
         ("TER", "S", "Teradyne — test"),
         ("ENTG", "P", "Entegris — materials engineering; 1% yield = $800M for 1.4nm"),
@@ -1257,6 +1294,39 @@ LAYER_NAMES_DETAIL = {
         ("NEXTDC", "S", "NXT AU — Australian DC"),
         ("Keppel DC", "S", "KDC SP — Asian DC REIT"),
     ],
+    "Line Hardware & HVDC Cable": [
+        ("PLPC", "P", "Preformed Line Products — sole-source on certain pole-line specs; under-followed micro-cap"),
+        ("HUBB", "P", "Hubbell Power Systems — utility hardware franchise"),
+        ("TEL", "S", "TE Connectivity — utility cable accessories"),
+        ("Prysmian", "P", "PRY IM — HVDC cable order book through 2030"),
+        ("Nexans", "S", "Nexans NEX FP — HVDC cable"),
+        ("NKT", "P", "NKT A/S DK — HVDC subsea cable; Vineyard Wind, Bornholm; effective duopoly with Prysmian"),
+        ("Southwire", "K", "Private — North American conductor leader"),
+    ],
+    "Steel Poles & Towers": [
+        ("VMI", "P", "Valmont — steel/concrete transmission poles + galvanizing; pivotal duopoly"),
+        ("ACA", "P", "Arcosa — wind/transmission structures; cheapest pivotal at 12.4x"),
+        ("TRN", "S", "Trinity Industries — railcar + structural"),
+        ("NUE", "S", "Nucor — structural steel feedstock"),
+        ("STLD", "S", "Steel Dynamics — structural steel feedstock"),
+        ("Sabre", "K", "Private — steel pole specialist"),
+    ],
+    "Galvanizing": [
+        ("AZZ", "P", "AZZ Inc. — largest pure-play hot-dip galvanizer in NA; quiet duopoly mispriced as cyclical"),
+        ("VMI", "P", "Valmont vertically integrated — galvanizing + poles"),
+    ],
+    "Defense Adjacent": [
+        ("GHM", "P", "Graham Corporation — vacuum + heat-transfer; naval nuclear + AI cooling"),
+        ("ESE", "P", "ESCO Technologies — Doble (utility) + ETS-Lindgren (EW shielding) + Globe (defense filtration)"),
+        ("ATMU", "P", "Atmus Filtration — turbine inlet air filtration; AI gas turbine adjacency"),
+        ("IPGP", "S", "IPG Photonics — high-power lasers; defense + cutting"),
+        ("BWXT", "S", "BWX Technologies — naval nuclear sole-source"),
+        ("HII", "S", "Huntington Ingalls — naval shipbuilder"),
+        ("GD", "S", "General Dynamics — diversified defense"),
+        ("CW", "S", "Curtiss-Wright — defense electronics"),
+        ("TDG", "S", "TransDigm — aero aftermarket pricing power"),
+        ("HEI", "S", "HEICO — aero parts + defense electronics"),
+    ],
 }
 
 
@@ -1286,4 +1356,86 @@ MONOPOLY_TICKERS = {
     "Han Mi Semi 042700.KS",   # TC bonder for Korean HBM ecosystem
     "ASMPT 0522.HK",           # Advanced packaging equipment leader
     "Mitsui Chemicals 4183.T", # EUV pellicle sole supplier
+    # Round 4: colleague's grid-buildout + galvanizing duopolies
+    "AZZ",                     # Galvanizing — largest pure-play, ~40% NA share
+    "VMI",                     # Steel poles + galvanizing duopolist
+    "ACA",                     # Steel poles duopolist (with VMI)
+    "NKT",                     # HVDC subsea cable duopolist (with Prysmian)
+    "PLPC",                    # Pole-line hardware — sole-source on certain specs
+    "BWXT",                    # Naval nuclear — sole-source
+    "ATMU",                    # Turbine inlet air filtration — installed-base lock-in
+}
+
+
+# ── Pivotal (★) tickers ──────────────────────────────────────────────────────
+# Colleague's flow-diagram-v3 designation: critical-path / sole-source /
+# under-priced operator within their tier. 18 names across 14 tiers. Drives
+# the ★ badge in the v2 dashboard's Easiest Bets table.
+PIVOTAL_TICKERS = {
+    "ACLS",   # T2 silicon — Axcelis ion implant
+    "ESE",    # T2/T11/T15 silicon+power+defense — ESCO Technologies
+    "MPWR",   # T3 silicon — Monolithic Power
+    "ALAB",   # T5 silicon — Astera Labs (PCIe/CXL retimers)
+    "FIX",    # T7 dc — Comfort Systems modular pre-fab
+    "HUBB",   # T8/T11 dc+power — Hubbell connectors + grid hardware
+    "SPXC",   # T11 power — SPX Technologies transformer cores
+    "POWL",   # T11 power — Powell Industries switchgear
+    "CLF",    # T11 power — GOES sole-source
+    "PLPC",   # T12 power — Preformed Line Products
+    "NKT",    # T12 power — HVDC subsea cable
+    "VMI",    # T13 power — Valmont steel poles
+    "ACA",    # T13 power — Arcosa steel poles (cheapest pivotal)
+    "AZZ",    # T14 power — galvanizing leader
+    "GHM",    # T15 defense — Graham vacuum/heat-transfer
+    "ATMU",   # T15 defense — Atmus turbine air filtration
+}
+
+
+# ── Tier mapping ─────────────────────────────────────────────────────────────
+# Maps each of the 29 model layers to colleague's canonical T1-T15 numbering
+# and track (silicon / dc / power / defense). Used by dashboard for grouping
+# and narrative. T6 (Hyperscalers) and T10 (DC Hub) are demand-side, not
+# supply layers — they don't appear in our model.
+LAYER_TIER = {
+    # Power / Energy
+    "Power Generation":               ("T9",  "power"),
+    "Grid Interconnect Queue":        ("T9",  "power"),
+    "GOES (Electrical Steel)":        ("T11", "power"),
+    "Large Power Transformers (LPT)": ("T11", "power"),
+    "Distribution Transformers":      ("T11", "power"),
+    "UPS / Backup Power":             ("T9",  "power"),
+    "Liquid Cooling":                 ("T8",  "dc"),
+    "Skilled Electrical Labor":       ("T7",  "dc"),
+    # Silicon / Compute
+    "GPU / AI Accelerators":          ("T4",  "silicon"),
+    "HBM Memory":                     ("T4",  "silicon"),
+    "CoWoS / Advanced Packaging":     ("T4",  "silicon"),
+    "Fab Equipment":                  ("T2",  "silicon"),
+    "EDA Tools / IP":                 ("T3",  "silicon"),
+    "CPU / Host Processors":          ("T4",  "silicon"),
+    "Server DRAM":                    ("T4",  "silicon"),
+    "Advanced Substrates / PCB":      ("T4",  "silicon"),
+    "ABF Dielectric Film":            ("T1",  "silicon"),
+    "HBM Hybrid Bonding":             ("T2",  "silicon"),
+    "EUV Mask Inspection / Pellicles": ("T2",  "silicon"),
+    # Networking
+    "Scale-Out Networking Silicon":   ("T5",  "silicon"),
+    "Optical Transceivers":           ("T5",  "silicon"),
+    "Fiber / Physical Cabling":       ("T5",  "silicon"),
+    "High-Speed Connectors":          ("T5",  "silicon"),
+    # Physical Infrastructure
+    "Data Center Construction":       ("T7",  "dc"),
+    "DC REITs / Co-lo":               ("T7",  "dc"),
+    # Round 4 grid buildout pipeline
+    "Line Hardware & HVDC Cable":     ("T12", "power"),
+    "Steel Poles & Towers":           ("T13", "power"),
+    "Galvanizing":                    ("T14", "power"),
+    "Defense Adjacent":               ("T15", "defense"),
+}
+
+TRACK_COLOR = {
+    "silicon": "#8e44ad",   # purple
+    "dc":      "#16a085",   # teal
+    "power":   "#c0392b",   # red
+    "defense": "#1a5276",   # navy
 }

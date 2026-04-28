@@ -225,3 +225,79 @@ PM shared `Token_and_Data_Build_Out_v4_2.xlsx` from colleague — adds an **"Eff
 - `model.py::build_macro_gap()` — the framework implementation, sourced lines 52-61 of the Excel
 - `model.py::MACRO_SCENARIOS` — the 4 scenarios from Excel rows 64-67
 - `model.py::gap_summary()` — extracts peak / balance / overshoot for headline metrics
+
+
+---
+
+## Round 4 — colleague's 14-tier scaffolding (April 2026)
+
+### What changed
+
+Colleague shared two HTML deliverables alongside the Excel:
+- `AI_Supply_Chain_Flow_Diagram_v3.html` — interactive 14-tier flow, 154 companies, FactSet EV/EBITDA + pivotal (★) + market cap
+- `AI_Supply_Chain_Valuation_Grid_v5.html` — same scaffold + per-tier `insight` narrative
+
+Confirmed: **T1-T15 are tiers, not years.** T6 (Hyperscalers) and T10 (DC Hub) are demand-side, so 14 active supply tiers. Tracks: silicon (T1-T6), dc (T7-T8), power (T9, T11-T14), defense (T15).
+
+### Adopted
+
+1. **Canonical T1-T15 tier numbering.** Added `LAYER_TIER` mapping in model.py — every model layer now also has a tier ID and track tag. Surfaces in dashboard as a pill on every card and a column in the easiest-bets table.
+2. **Pivotal (★) ticker set.** 16 names colleague flagged as critical-path / sole-source within their tier. Renders as a gold ★ in dashboard. (Distinct from MONOPOLY_TICKERS which drives the +20% composite-score boost.)
+3. **Four new layers** that didn't exist anywhere in the model:
+   - **T12 Line Hardware & HVDC Cable** (PLPC ★ 18.7x, NKT ★ 14.3x, HUBB, Prysmian, TEL)
+   - **T13 Steel Poles & Towers** (VMI ★ 14.1x, ACA ★ 12.4x — duopoly on engineered transmission structures)
+   - **T14 Galvanizing** (AZZ ★ 12.5x ~40% NA share, VMI vertically integrated)
+   - **T15 Defense Adjacent** (GHM ★ 33.7x, ESE ★ 26.1x, ATMU ★ 13.7x, plus BWXT/HII/GD/CW/TDG/HEI/IPGP)
+4. **Deferred:** EV/EBITDA integration. PM has Bloomberg, not FactSet — will pull valuations later.
+
+### The 16 pivotal ★ names
+
+Sorted by colleague's EV/EBITDA (cheap first = highest mispricing per his framework):
+
+| Ticker | Tier | Track | EV/EBITDA | Notes |
+|---|---|---|---|---|
+| CLF | T11 | power | 10.7x | GOES sole-source US — already in MONOPOLY |
+| ACA | T13 | power | 12.4x | Steel pole duopolist — NEW LAYER |
+| AZZ | T14 | power | 12.5x | Galvanizing duopolist — NEW LAYER |
+| ATMU | T15 | defense | 13.7x | Turbine air filtration — NEW LAYER |
+| VMI | T13 | power | 14.1x | Steel poles + galvanizing — NEW LAYER |
+| NKT | T12 | power | 14.3x | HVDC subsea cable — NEW LAYER |
+| SPXC | T11 | power | 18.1x | Transformer cores + switchgear — bumped to P-tier |
+| PLPC | T12 | power | 18.7x | Pole-line hardware — NEW LAYER |
+| HUBB | T8/T11 | dc/power | 20.0x | Connectors + grid hardware (multi-tier) |
+| ESE | T2/T11/T15 | multi | 26.1x | Doble + ETS-Lindgren + Globe (3 tiers) |
+| FIX | T7 | dc | 30.5x | Comfort Systems modular pre-fab |
+| GHM | T15 | defense | 33.7x | Naval nuclear + AI cooling vacuum systems |
+| POWL | T11 | power | 34.5x | Powell switchgear — bumped to P-tier |
+| ACLS | T2 | silicon | 35.3x | Ion implant — added to Fab Equipment |
+| MPWR | T3 | silicon | 64.4x | On-board PMIC for AI servers — added to UPS |
+| ALAB | T5 | silicon | 77.3x | PCIe/CXL retimers |
+
+### Updated MONOPOLY_TICKERS additions
+
+- AZZ (galvanizing oligopoly)
+- VMI, ACA (steel pole duopoly)
+- NKT (HVDC subsea cable duopolist with Prysmian)
+- PLPC (sole-source on certain pole-line specs)
+- BWXT (naval nuclear sole-source)
+- ATMU (installed-base lock-in on turbine inlet filtration)
+
+### Bottleneck Map updates
+
+- Reorganized columns: Materials / Power & Grid / Silicon / Platform & Net / Facility & Defense
+- Galvanizing → Materials column (alongside GOES)
+- Line Hardware & HVDC + Steel Poles & Towers → Power & Grid column
+- Defense Adjacent → its own slot in Facility & Defense column
+- Every card now shows a tier pill (T1-T15) and ★ next to pivotal tickers in the chip row
+
+### What's next (deferred)
+
+- **EV/EBITDA integration** — wait for Bloomberg pull from PM. Will go in as a "Valuation" column in the easiest-bets table next to Composite Score.
+- **Per-tier `insight` narrative** from colleague's valuation grid HTML — could surface as a tooltip / expandable on each Bottleneck Map column header.
+- **Add T1 Raw Materials & Specialty Chemicals as a separate layer** (currently we map ABF Dielectric Film to T1 but have no broader raw-materials layer covering Shin-Etsu, SUMCO, Entegris, Linde, Air Products, Albemarle).
+
+### Files / lines
+
+- `model.py` — 4 new layers in `LAYERS`, new entries in `LAYER_NAMES_DETAIL`, extended `MONOPOLY_TICKERS`, new `PIVOTAL_TICKERS` set, new `LAYER_TIER` + `TRACK_COLOR` mappings
+- `dashboard_v2/app.py` — tier pills + ★ badges on bottleneck map cards, bet cards, per-layer cards, and full ranking table
+- `research/colleague_flow_diagram_v3.json` — structured extract used to drive the integration
