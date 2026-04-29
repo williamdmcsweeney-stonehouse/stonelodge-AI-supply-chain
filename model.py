@@ -7,6 +7,8 @@ layer of the AI infrastructure stack, from silicon design to grid power.
 Calibration anchor: ~30 GW total hyperscaler AI infrastructure in 2025.
 """
 
+from __future__ import annotations  # PEP 604 / PEP 585 compatibility on Python 3.9+
+
 import os
 import numpy as np
 import pandas as pd

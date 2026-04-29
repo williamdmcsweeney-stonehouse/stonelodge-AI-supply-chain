@@ -27,27 +27,41 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from model import (
-    LAYER_NAMES_DETAIL,
-    LAYER_TIER,
-    LAYERS,
-    MACRO_SCENARIOS,
-    MONOPOLY_TICKERS,
-    PIVOTAL_TICKERS,
-    TRACK_COLOR,
-    YEARS,
-    all_tickers_with_layers,
-    build_infrastructure_demand,
-    build_infrastructure_demand_vintaged,
-    build_macro_gap,
-    build_tightness_scores,
-    build_token_demand,
-    company_blurb,
-    gap_summary,
-    market_cap_b,
-    power_inflection_year,
-    theme_exposure_pct,
-)
+# Diagnostic try/except around model import. If this fails on Streamlit Cloud,
+# show the REAL traceback on-screen instead of letting Streamlit redact it to a
+# generic "ImportError" — this turns a 30-min debugging cycle into a 30-second
+# one because the actual root cause shows up immediately on the broken page.
+try:
+    from model import (
+        LAYER_NAMES_DETAIL,
+        LAYER_TIER,
+        LAYERS,
+        MACRO_SCENARIOS,
+        MONOPOLY_TICKERS,
+        PIVOTAL_TICKERS,
+        TRACK_COLOR,
+        YEARS,
+        all_tickers_with_layers,
+        build_infrastructure_demand,
+        build_infrastructure_demand_vintaged,
+        build_macro_gap,
+        build_tightness_scores,
+        build_token_demand,
+        company_blurb,
+        gap_summary,
+        market_cap_b,
+        power_inflection_year,
+        theme_exposure_pct,
+    )
+except Exception as _model_import_err:
+    import traceback as _tb
+    import streamlit as _st_err
+    _st_err.error(
+        "**Model import failed** — full traceback below "
+        "(if you're on Streamlit Cloud, also check the deploy logs)."
+    )
+    _st_err.code(_tb.format_exc(), language="python")
+    _st_err.stop()
 
 # ═════════════════════════════════════════════════════════════════════════════
 # PAGE SETUP
