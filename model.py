@@ -10,8 +10,11 @@ Calibration anchor: ~30 GW total hyperscaler AI infrastructure in 2025.
 import os
 import numpy as np
 import pandas as pd
-import openpyxl
 from pathlib import Path
+# openpyxl is lazy-imported inside load_excel_scenario so this module loads
+# even in environments where openpyxl install has hiccupped (Streamlit Cloud
+# has occasionally failed to satisfy the wheel — module-level imports here
+# would surface as a redacted ImportError on the cloud entrypoint).
 
 # Excel input — prefer v4_2 (with Efficiency Overlay sheet) in this repo;
 # fall back to the legacy file in stonelodge-backend if v4_2 not present.
@@ -283,6 +286,8 @@ def load_excel_scenario(sheet_name: str) -> pd.DataFrame:
     Load a scenario sheet. Keeps first occurrence of duplicate row labels
     (prevents mix-% rows from overwriting the token-count rows).
     """
+    import openpyxl  # lazy import — see top-of-file note
+
     wb = openpyxl.load_workbook(str(EXCEL_PATH), data_only=True)
     ws = wb[sheet_name]
 
