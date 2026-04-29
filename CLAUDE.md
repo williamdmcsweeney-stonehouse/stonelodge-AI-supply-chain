@@ -267,7 +267,11 @@ These go in `shared/pattern_library/` as permanent reference files (e.g., `marke
 **The mechanism:**
 - **Immediately:** Any agent that discovers a cross-domain insight writes it to `shared/cross_agent_insights/YYYY-MM-DD_[agent]_[topic].md` before the conversation ends.
 - **Sunday synthesis (Program 4):** Extracts the week's cross-domain lessons, updates pattern library files, and publishes a weekly cross-sector briefing all agents absorb.
-- **Session ramp *(wired — as of 2026-04-28):*** Every chat session automatically injects: (1) agent-specific knowledge sorted by type priority + recency, (2) newest 10 cross-agent insights from `shared/cross_agent_insights/`, (3) all 6 compounder archetypes from `shared/pattern_library/`, (4) universal shared feedback rules. Implemented in `src/routes/analyst-chat.js → loadAgentMemory()`. TTL: 30 min, so training output appears in chat within half an hour of being written.
+- **Session ramp *(wired — as of 2026-04-28):*** Every chat session automatically injects agent knowledge via `src/routes/analyst-chat.js → loadAgentMemory()`. Two independent budgets prevent any category from crowding out another:
+  - **Bucket A (60KB):** Curated analyst knowledge — `reference_`, `project_`, `feedback_`, `calibration_`, `weekly_digest_` files. Sorted by type priority, newest-first within type.
+  - **Bucket B (20KB):** Consolidated training history — `consolidated_` briefs (each covering 10 `history_` sessions). Guaranteed budget separate from Bucket A. Raw `history_` files are excluded here — they are already synthesized into consolidated briefs.
+  - **Shared (30KB):** Newest 10 cross-agent insights + all 6 compounder archetypes + universal feedback rules.
+  - Cache: per-agent Map, 30-min TTL — training output appears in chat within 30 min of being written.
 
 **The north star:** A sector analyst's pitch should naturally incorporate the PM's market cycle context. The PM should naturally speak the sector's language. They train each other continuously until the distinction between "sector expert" and "market-aware analyst" disappears inside a single agent's output.
 
