@@ -324,7 +324,7 @@ def load_excel_scenario(sheet_name: str) -> pd.DataFrame:
 
 def build_token_demand(
     scenario: str = "Base",
-    ai_users_2025_M: float = 1100,
+    ai_users_2025_M: float = 1400,
     agent_multiplier_scale: float = 1.0,
     humanoid_units_scale: float = 1.0,
     enterprise_intensity_scale: float = 1.0,
@@ -333,13 +333,25 @@ def build_token_demand(
 ) -> pd.DataFrame:
     """
     Build the token demand curve from Excel + user overrides.
+
     Returns DataFrame indexed by year with columns:
         retail_T, enterprise_T, robotics_cloud_T, robotics_edge_T,
         total_cloud_T, total_T  (all in Trillions tokens/day)
+
+    Note on the Agent Multiplier:
+        The Excel "Enterprise Used Per Day (T)" row is already the
+        post-agent-multiplier net token demand (i.e., the multiplier is
+        baked into the displayed enterprise number, not applied here).
+        The Excel also exposes the raw "Agent Multiplier" curve (2.5x in
+        2025 → 14.7x in 2040) for transparency. The `agent_multiplier_scale`
+        slider rescales the post-agent enterprise number — 1.0 = trust
+        Stonehouse forecast as-is, <1.0 = slower agent ramp, >1.0 = faster.
     """
     df = load_excel_scenario(scenario)
 
-    # AI user scale factor vs base
+    # AI user scale factor vs base. Default raised from 1100 → 1400 M to match
+    # H2-2025 aggregate weekly AI users (OpenAI 800M + Gemini + Meta AI +
+    # Claude consumer + Copilot embeds).
     try:
         base_users_2025 = float(df.loc["AI Users (M's)", 2025])
     except Exception:
@@ -354,8 +366,9 @@ def build_token_demand(
             retail = 0.0
 
         try:
+            # Excel's enterprise row already reflects the agent multiplier;
+            # the scale slider rescales that post-agent number. See docstring.
             ent_raw = float(df.loc["Enterprise Used Per Day (T)", year])
-            base_agent = float(df.loc["Agent Multiplier", year])
             enterprise = ent_raw * agent_multiplier_scale * enterprise_intensity_scale
         except Exception:
             enterprise = 0.0
@@ -395,25 +408,37 @@ def build_token_demand(
 # build_infrastructure_demand_vintaged + build_tightness_scores) provides the
 # granular drilldown beneath this aggregate view.
 #
-# Sources (per Excel rows 52-61):
-# [1] Epoch AI 2024 — hardware efficiency doubling ~2 yr
-# [3] Hyperscaler GPU refresh 4-5yr; enterprise 7-8yr → fleet lag = 6 yr midpoint
-# [4][5][6] Cushman & Wakefield — US 40.6 / EMEA 10.3 / APAC 12.2 = 63 GW base
-# [7] JLL 2026 Global DC Outlook — 200 GW by 2030 forecast
-# [9] JLL — $11.3M/MW shell+core construction cost
-# [10] JLL — AI workload share 25% (2025) → 50% (2030); $15M/MW AI fit-out
+# Sources (refreshed 2026-04-29 — see also research/assumptions_validation.md):
+# [1] Epoch AI Jun 2025 update — hardware efficiency doubling ~21 months
+#     (revised from 24 months in 2024). H100→B200→B300 cadence is running
+#     faster than the prior trend.
+# [3] Hyperscaler GPU refresh tightening to 3-4yr (Blackwell→Rubin); enterprise
+#     still 7-8yr. Weighted midpoint ~5.5-6 yr.
+# [4][5][6] Cushman & Wakefield 2024: US 40.6 + EMEA 10.3 + APAC 12.2 = 63 GW.
+#     With H2-2024 + H1-2025 adds (~15-20%/yr), early-2026 anchor is 70-72 GW.
+#     Triangulates with: JLL 2026 Outlook ~72 GW, GS Feb 2025 65 GW operational
+#     + 90 GW under construction, McKinsey 2024 ~70 GW, DCD Q1-2025 ~68 GW.
+# [7] JLL 2026 Global DC Outlook — 200 GW operational by 2030 (supply view).
+#     Triangulates with: McKinsey 200-225 GW, Bain 220 GW, GS 165-200 GW.
+# [8] AI inference utilization Q1-2026 ~9% of deployed AI fleet (was 6.7% in
+#     2024 — H2-2025 ramp from agentic workloads + ChatGPT 800M weekly).
+# [9] JLL 2026 — $11.3M/MW shell+core construction cost.
+# [10] JLL 2026 — AI workload share 25% (2025) → 50% (2030); $15M/MW AI fit-out.
+# [11] AI users 2025: 1.4B aggregate weekly (OpenAI ~800M + Gemini + Meta AI +
+#      Claude consumer + Copilot embeds; up from ~1.1B 2024 baseline).
 #
-# Macro gap scenarios (per Excel rows 64-67):
-#   Bear (fast efficiency):    doubling=1.5, lag=4, gap closes ~2032
-#   Base (empirical):          doubling=2.0, lag=6, gap persists through 2034+
-#   Bull (physics slowdown):   doubling=3.0, lag=8, gap never closes through 2042
-#   Infrastructure-only:       supply phase rates 0.15/0.20/0.20/0.12
+# Macro gap scenarios (refreshed):
+#   Base (empirical):          doubling=1.85, lag=6, gap persists through 2034+
+#   Bear (fast efficiency):    doubling=1.5,  lag=4, gap closes ~2032
+#   Bull (physics slowdown):   doubling=3.0,  lag=8, gap never closes through 2042
+#   Infrastructure-only:       supply phase rates 0.15/0.20/0.20/0.12 (slower physical build)
 
 MACRO_SCENARIOS = {
     "Base — empirical (Stonehouse)": {
-        "doubling": 2.0, "lag": 6,
+        "doubling": 1.85, "lag": 6,
         "supply_rates": (0.22, 0.30, 0.25, 0.15),
-        "note": "Gap persists through 2034+. No air pocket for power names. Default.",
+        "note": "Gap persists through 2034+. No air pocket for power names. Default. "
+                "Triangulates: 2030 supply 229 GW vs consensus 200 GW (JLL/McK/Bain).",
     },
     "Bear — fast efficiency": {
         "doubling": 1.5, "lag": 4,
@@ -426,7 +451,7 @@ MACRO_SCENARIOS = {
         "note": "Gap never closes through 2042. All tiers critical, durable rent capture.",
     },
     "Infrastructure-only (slow build)": {
-        "doubling": 2.0, "lag": 6,
+        "doubling": 1.85, "lag": 6,
         "supply_rates": (0.15, 0.20, 0.20, 0.12),
         "note": "Models realistic physical build pace. Gap even larger; peak ~2031-32.",
     },
@@ -435,8 +460,8 @@ MACRO_SCENARIOS = {
 
 def build_macro_gap(
     token_df: pd.DataFrame,
-    anchor_gw_2025: float = 66.0,                        # Cushman & Wakefield total DC capacity
-    efficiency_doubling_years: float = 2.0,              # Epoch AI [1]
+    anchor_gw_2025: float = 70.0,                        # JLL 2026 + C&W 2024 + GS Feb 2025 mid [4-6]
+    efficiency_doubling_years: float = 1.85,             # Epoch AI Jun 2025 update [1]
     fleet_lag_years: int = 6,                            # 4-5yr hyperscaler + 7-8yr enterprise = 6 [3]
     supply_phase_rates: tuple = (0.22, 0.30, 0.25, 0.15),  # 26-27, 28-30, 31-35, 36-42
     cost_shell_per_mw_M: float = 11.3,                   # JLL [9]

@@ -311,20 +311,24 @@ NEW_LAYERS = {
 
 PRESETS = {
     "Stonehouse Base": {
-        "scenario": "Base", "ai_users": 1100, "agent_mult": 1.0, "humanoid": 1.0,
-        "enterprise": 1.0, "doubling": 2.0, "util_2025": 0.067,
+        # 2026-04-29 audit: ai_users 1100→1400 (H2-25 aggregate weekly AI users
+        # — OpenAI 800M + Gemini + Meta AI + Claude + Copilot); doubling 2.0→1.85
+        # (Epoch AI Jun 2025 update); util 6.7%→9.0% (H2-25 ramp from agentic +
+        # ChatGPT 800M weekly). Triangulates: 2030 supply 229 GW vs JLL/McK 200.
+        "scenario": "Base", "ai_users": 1400, "agent_mult": 1.0, "humanoid": 1.0,
+        "enterprise": 1.0, "doubling": 1.85, "util_2025": 0.090,
     },
     "Robotics Bull": {
-        "scenario": "Robo Bull", "ai_users": 1300, "agent_mult": 1.4, "humanoid": 2.5,
-        "enterprise": 1.3, "doubling": 2.0, "util_2025": 0.075,
+        "scenario": "Robo Bull", "ai_users": 1600, "agent_mult": 1.4, "humanoid": 2.5,
+        "enterprise": 1.3, "doubling": 1.85, "util_2025": 0.105,
     },
     "Adoption Bear": {
-        "scenario": "Bear", "ai_users": 800, "agent_mult": 0.7, "humanoid": 0.5,
-        "enterprise": 0.8, "doubling": 2.25, "util_2025": 0.06,
+        "scenario": "Bear", "ai_users": 1000, "agent_mult": 0.7, "humanoid": 0.5,
+        "enterprise": 0.8, "doubling": 2.25, "util_2025": 0.075,
     },
-    "Aggressive Efficiency (1.75yr doubling)": {
-        "scenario": "Base", "ai_users": 1100, "agent_mult": 1.0, "humanoid": 1.0,
-        "enterprise": 1.0, "doubling": 1.75, "util_2025": 0.067,
+    "Aggressive Efficiency (1.5yr doubling)": {
+        "scenario": "Base", "ai_users": 1400, "agent_mult": 1.0, "humanoid": 1.0,
+        "enterprise": 1.0, "doubling": 1.5, "util_2025": 0.090,
     },
 }
 
@@ -392,10 +396,12 @@ st.sidebar.caption("_Macro & demand pills are at the top of the main page._")
 
 st.sidebar.markdown("### Fleet Calibration")
 anchor_gw = st.sidebar.slider(
-    "2025 DC power anchor (GW)", 30.0, 80.0, 66.0, 1.0,
-    help="Total global DC operational capacity 2025. "
-         "Cushman & Wakefield: US 40.6 + EMEA 10.3 + APAC 12.2 = 63 GW (~66 GW with growth to YE25). "
-         "Drives the macro gap framework. Note: this is TOTAL DC capacity, broader than AI-only fleet.",
+    "2025 DC power anchor (GW)", 30.0, 90.0, 70.0, 1.0,
+    help="Total global DC operational capacity early 2026. "
+         "Triangulation across public reports: C&W 2024 base 63 + 2024-25 growth ≈ 70-72; "
+         "JLL 2026 Outlook ~72; GS Feb 2025 65 op (+90 under construction); McKinsey 2024 ~70; "
+         "DCD Q1-2025 ~68. Default 70 = mid-consensus. "
+         "This is TOTAL DC capacity, broader than AI-only fleet.",
 )
 fleet_life = st.sidebar.slider(
     "Fleet replacement lag (years)", 3, 10, macro_cfg["lag"], 1,
@@ -411,14 +417,16 @@ use_vintaged = st.sidebar.checkbox(
 
 st.sidebar.markdown("### Key Levers")
 doubling = st.sidebar.slider(
-    "Efficiency doubling (years)", 1.0, 4.0, macro_cfg["doubling"], 0.25,
-    help="Hardware efficiency doubling period (Epoch AI: ~2yr empirical). "
+    "Efficiency doubling (years)", 1.0, 4.0, macro_cfg["doubling"], 0.05,
+    help="Hardware efficiency doubling period. Epoch AI Jun 2025 update: ~21 months "
+         "(revised from 24mo in 2024). H100→B200→B300 cadence is running faster than the prior trend. "
          "Lower = faster frontier gains. Default tracks selected Macro Scenario.",
 )
 util_2025 = st.sidebar.slider(
     "Inference utilization 2025 %",
     1.0, 20.0, round(preset["util_2025"] * 100, 1), 0.1,
-    help="Pct of deployed AI fleet doing active inference. Used by layer-level model only. ~6.7% historical.",
+    help="Pct of deployed AI fleet doing active inference. ~9% Q1-2026 (was 6.7% in 2024 — "
+         "H2-25 ramp from agentic workloads + ChatGPT 800M weekly active). Used by layer-level model only.",
 ) / 100
 
 st.sidebar.markdown("### Theme Exposure Filter")
@@ -437,8 +445,17 @@ with st.sidebar.expander("Advanced — supply phase rates"):
     supply_rates = (sr1, sr2, sr3, sr4)
 
 with st.sidebar.expander("Advanced — token demand"):
-    ai_users = st.slider("AI Users 2025 (M)", 500, 2000, preset["ai_users"], 50)
-    agent_mult = st.slider("Agent Multiplier", 0.25, 3.0, preset["agent_mult"], 0.05)
+    ai_users = st.slider(
+        "AI Users 2025 (M)", 500, 2500, preset["ai_users"], 50,
+        help="Aggregate weekly active AI users worldwide. H2-2025: OpenAI ~800M + Gemini + "
+             "Meta AI + Claude consumer + Copilot embeds ≈ 1.4B. Was 1.1B in 2024 baseline.",
+    )
+    agent_mult = st.slider(
+        "Agent Multiplier scale", 0.25, 3.0, preset["agent_mult"], 0.05,
+        help="Rescales the Excel's enterprise-token curve, which already bakes in an agent "
+             "multiplier ramp (2.5x in 2025 → 14.7x in 2040). 1.0 = trust the Stonehouse "
+             "forecast as-is. <1.0 = slower agent adoption. >1.0 = faster.",
+    )
     humanoid = st.slider("Humanoid Units", 0.1, 5.0, preset["humanoid"], 0.1)
     enterprise = st.slider("Enterprise Intensity", 0.5, 2.0, preset["enterprise"], 0.1)
 
