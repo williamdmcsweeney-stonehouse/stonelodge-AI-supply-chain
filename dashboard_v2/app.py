@@ -986,269 +986,275 @@ else:
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# PER-TRACK SANKEY — full supply-chain flow per track, tier-ordered.
-# Four tracks (silicon / dc / power / defense) each rendered as their own
-# Sankey, so you can see the actual chain of dependencies inside each track
-# rather than the high-level 6-stage chevron alone.
+# SUPPLY-CHAIN NARRATIVE — vertical waterfall walking the full chain.
+# At every stage: layers + tickers (with $market cap) + tightness pill.
 # ═════════════════════════════════════════════════════════════════════════════
 st.markdown("---")
-st.markdown(f"### Per-Track Supply Chain · tier-ordered layer flow · {year}")
+st.markdown(f"### Supply-Chain Narrative · who plays at every stage · {year}")
 st.caption(
-    "Four parallel tracks. Within each: layers ordered left-to-right by **T-tier** "
-    "(T1 inputs → T15 endpoints). **Node color = tightness** in the selected year "
-    "(red = binding, green = balanced). **Hover** any node for tickers + tightness number, "
-    "**hover** any link for the upstream/downstream relationship."
+    "Top-to-bottom walk through the entire AI infrastructure chain. **Each stage** = one layer of "
+    "the build-out (compute → memory → packaging → networking → DC → power → grid). **Ticker chips** "
+    "are sized/sorted by market cap (mega caps first); **★** = pivotal in our research; **§** = sole-source. "
+    "**Color of the chip** = AI-infra revenue exposure (green = pure-play). **Tightness pill** = "
+    "supply tension in the selected year."
 )
 
-def _tightness_color(score: float, alpha: float = 1.0) -> str:
-    """Return rgba color for a tightness score 0-100."""
-    if score >= 85:   r, g, b = 122, 29, 29     # deep red
-    elif score >= 70: r, g, b = 156, 42, 42     # red
-    elif score >= 55: r, g, b = 184, 92, 31     # orange
-    elif score >= 40: r, g, b = 154, 122, 26    # amber
-    elif score >= 25: r, g, b = 61, 111, 48     # green
-    else:             r, g, b = 31, 69, 48      # deep green
-    return f"rgba({r},{g},{b},{alpha})"
+
+# Stage definitions — order is the actual narrative the user reads top-to-bottom
+NARRATIVE_STAGES = [
+    {
+        "key": "users",
+        "label": "1 · Users & Agents",
+        "icon": "👥",
+        "color": "#27ae60",
+        "description": "Humans + agents + robots. The demand-side root cause. Frontier-model labs sit here.",
+        "layers": [],
+        "external_tickers": [
+            ("MSFT", "OpenAI partner / Copilot embed"),
+            ("GOOGL", "Gemini consumer + DeepMind"),
+            ("META", "Llama frontier / Meta AI"),
+            ("AAPL", "Apple Intelligence / on-device"),
+            ("AMZN", "Anthropic stake + Bedrock"),
+            ("ORCL", "OCI hosting Anthropic"),
+        ],
+    },
+    {
+        "key": "compute",
+        "label": "2 · GPU & AI Compute",
+        "icon": "💻",
+        "color": "#8e44ad",
+        "description": "Primary AI silicon. NVDA dominant; AVGO/AMZN/GOOG XPU share rising.",
+        "layers": ["GPU / AI Accelerators"],
+    },
+    {
+        "key": "memory",
+        "label": "3 · Memory · the bandwidth wall",
+        "icon": "📦",
+        "color": "#9b59b6",
+        "description": "HBM stacks bound inference throughput more than raw FLOPs do. Server DRAM behind it.",
+        "layers": ["HBM Memory", "Server DRAM"],
+    },
+    {
+        "key": "packaging",
+        "label": "4 · Packaging, Substrates & Fab",
+        "icon": "🏭",
+        "color": "#1abc9c",
+        "description": "CoWoS bonds GPU + HBM. Hybrid bonding for HBM4. ABF film monopoly + EUV mask sole-supply underneath everything.",
+        "layers": [
+            "CoWoS / Advanced Packaging",
+            "HBM Hybrid Bonding",
+            "ABF Dielectric Film",
+            "Advanced Substrates / PCB",
+            "EUV Mask Inspection / Pellicles",
+            "Fab Equipment",
+            "EDA Tools / IP",
+            "CPU / Host Processors",
+        ],
+    },
+    {
+        "key": "networking",
+        "label": "5 · Networking, Optics & Connectors",
+        "icon": "🔌",
+        "color": "#3498db",
+        "description": "Ties GPUs into clusters. CPO architectural step-change 2027-28. AEC replaces copper above 400G.",
+        "layers": [
+            "Scale-Out Networking Silicon",
+            "Co-Packaged Optics (CPO)",
+            "DPU / SmartNICs",
+            "Optical Transceivers",
+            "Active Electrical Cables (AEC)",
+            "Fiber / Physical Cabling",
+            "High-Speed Connectors",
+        ],
+    },
+    {
+        "key": "facility",
+        "label": "6 · Data Center Build & Operate",
+        "icon": "🏢",
+        "color": "#16a085",
+        "description": "Specialty contractors + REITs + cooling + UPS. Labor + grid interconnect bind 2026-30.",
+        "layers": [
+            "Data Center Construction",
+            "DC REITs / Co-lo",
+            "Liquid Cooling",
+            "UPS / Backup Power",
+            "Skilled Electrical Labor",
+        ],
+    },
+    {
+        "key": "power",
+        "label": "7 · Power Generation",
+        "icon": "⚡",
+        "color": "#e74c3c",
+        "description": "Gas turbines (GEV slots through 2030), behind-the-meter nuclear (CEG/TLN). PJM queue gates supply.",
+        "layers": [
+            "Power Generation",
+            "Grid Interconnect Queue",
+        ],
+    },
+    {
+        "key": "grid",
+        "label": "8 · Transmission & Grid Hardware",
+        "icon": "🔋",
+        "color": "#c0392b",
+        "description": "GOES sole-source (CLF), LPT lead times 100-210 weeks, line hardware + poles + galvanizing.",
+        "layers": [
+            "GOES (Electrical Steel)",
+            "Large Power Transformers (LPT)",
+            "Distribution Transformers",
+            "Line Hardware & HVDC Cable",
+            "Steel Poles & Towers",
+            "Galvanizing",
+        ],
+    },
+    {
+        "key": "defense",
+        "label": "9 · Defense Adjacent",
+        "icon": "🛡️",
+        "color": "#1a5276",
+        "description": "Naval nuclear, turbine air filtration, EW shielding — quiet AI-adjacent compounders.",
+        "layers": ["Defense Adjacent"],
+    },
+]
 
 
-# Build per-track layer ordering (by T-tier number, then alpha)
-def _tier_num(t: str) -> int:
-    try: return int(t.lstrip("T"))
-    except Exception: return 99
-
-_track_layers: dict[str, list[str]] = {"silicon": [], "dc": [], "power": [], "defense": []}
-for layer, (tier, track) in LAYER_TIER.items():
-    if layer in tight_df.columns:
-        _track_layers[track].append((layer, _tier_num(tier), tier))
-for track in _track_layers:
-    _track_layers[track].sort(key=lambda x: (x[1], x[0]))
-
-
-def render_track_sankey(track: str, layer_tuples: list, year_idx: int):
-    """One Sankey per track, layers ordered by tier."""
-    if not layer_tuples:
-        return None
-    layers = [t[0] for t in layer_tuples]
-    tiers  = [t[2] for t in layer_tuples]
-    scores = [float(tight_df.loc[year_idx, L]) for L in layers]
-
-    # Node labels: "T-tier · Layer (score/100)"
-    node_labels = [
-        f"{tier} · {layer}<br><span style='font-size:10px'>{int(score)}/100</span>"
-        for layer, tier, score in zip(layers, tiers, scores)
-    ]
-    node_colors = [_tightness_color(s, 0.85) for s in scores]
-    # Hover: top P-tier tickers + score
-    node_hover = []
-    for layer, tier, score in zip(layers, tiers, scores):
-        primaries = [n for n, t, _ in LAYER_NAMES_DETAIL.get(layer, []) if t == "P"][:5]
-        chip_str = ", ".join(primaries) if primaries else "—"
-        node_hover.append(
-            f"<b>{tier} · {layer}</b><br>"
-            f"Tightness {year_idx}: {int(score)}/100<br>"
-            f"Top plays: {chip_str}"
-        )
-
-    # Edges: connect each layer to the next tier-up layer (tier-1 → tier+1 chain)
-    sources, targets, values, link_colors, link_hover = [], [], [], [], []
-    for i in range(len(layers) - 1):
-        sources.append(i)
-        targets.append(i + 1)
-        # Link width = average tightness of the two endpoints
-        avg = (scores[i] + scores[i + 1]) / 2
-        values.append(max(1.0, avg))  # always ≥1 so links remain visible
-        link_colors.append(_tightness_color(avg, 0.30))
-        link_hover.append(
-            f"<b>{tiers[i]} {layers[i]}</b> → <b>{tiers[i+1]} {layers[i+1]}</b><br>"
-            f"Avg tightness: {int(avg)}/100"
-        )
-
-    fig = go.Figure(go.Sankey(
-        arrangement="snap",
-        node=dict(
-            pad=18, thickness=18,
-            line=dict(color="#0e1117", width=0.5),
-            label=node_labels, color=node_colors,
-            customdata=node_hover,
-            hovertemplate="%{customdata}<extra></extra>",
-        ),
-        link=dict(
-            source=sources, target=targets, value=values,
-            color=link_colors,
-            customdata=link_hover,
-            hovertemplate="%{customdata}<extra></extra>",
-        ),
-    ))
-    fig.update_layout(
-        height=max(180, 55 * len(layers)),
-        paper_bgcolor="#0e1117", plot_bgcolor="#0e1117",
-        font=dict(color="#e0e3eb", size=11),
-        margin=dict(t=10, b=10, l=10, r=10),
+def _ticker_chip_html(ticker: str, mcap: float, exposure: int, pivotal: bool, monopoly: bool) -> str:
+    """Render one ticker as a colored pill with $market_cap suffix."""
+    if mcap >= 1000: cap_str = f"${mcap/1000:.1f}T"
+    elif mcap >= 10: cap_str = f"${mcap:.0f}B"
+    elif mcap >= 1:  cap_str = f"${mcap:.1f}B"
+    else:            cap_str = f"${mcap*1000:.0f}M"
+    # Background by exposure
+    if exposure >= 70:   bg = "#1f4530"   # dark green — pure play
+    elif exposure >= 40: bg = "#5d4037"   # warm brown — mixed
+    elif exposure >= 20: bg = "#3d3520"   # dim yellow — diversified
+    else:                bg = "#2a2f3d"   # gray — minor exposure
+    star = "<span style='color:#ffd700; margin-right:2px;'>★</span>" if pivotal else ""
+    sole = "<span style='color:#ffd700; margin-right:2px;'>§</span>" if monopoly else ""
+    return (
+        f"<span style='background:{bg}; color:#fff; padding:3px 8px; border-radius:5px; "
+        f"margin: 2px 4px 2px 0; font-size:11px; font-weight:600; "
+        f"display:inline-block; border:1px solid rgba(255,255,255,0.10);'>"
+        f"{star}{sole}{ticker} "
+        f"<span style='color:#8893a8; font-weight:400; font-size:10px;'>· {cap_str}</span>"
+        f"</span>"
     )
-    return fig
 
 
-_TRACK_LABEL = {
-    "silicon": "Silicon (T1 inputs → T5 networking)",
-    "dc":      "Data Center (T7 build → T8 cooling)",
-    "power":   "Power & Grid (T9 generation → T14 galvanizing)",
-    "defense": "Defense Adjacent (T15)",
-}
-trk1, trk2 = st.columns(2)
-for col, track in zip([trk1, trk2, trk1, trk2], ["silicon", "power", "dc", "defense"]):
-    fig = render_track_sankey(track, _track_layers[track], year)
-    if fig is None:
-        continue
-    with col:
+def _tightness_pill_html(score: float) -> str:
+    if score >= 85:   bg, txt = "#7a1d1d", "binding"
+    elif score >= 70: bg, txt = "#9c2a2a", "tight"
+    elif score >= 55: bg, txt = "#b85c1f", "elevated"
+    elif score >= 40: bg, txt = "#9a7a1a", "watch"
+    elif score >= 25: bg, txt = "#3d6f30", "balanced"
+    else:             bg, txt = "#1f4530", "loose"
+    return (
+        f"<span style='background:{bg}; color:#fff; padding:2px 8px; border-radius:10px; "
+        f"font-size:10px; font-weight:700; letter-spacing:0.04em;'>"
+        f"{int(score)}/100 · {txt}</span>"
+    )
+
+
+def _render_layer_row(layer: str, year_idx: int):
+    """One layer row inside a stage card: layer name + tightness pill + ticker chips."""
+    score = float(tight_df.loc[year_idx, layer]) if layer in tight_df.columns else 0.0
+    sc_tier, _ = LAYER_TIER.get(layer, ("—", "—"))
+
+    # Pull tickers for the layer; sort by market cap descending
+    tickers = LAYER_NAMES_DETAIL.get(layer, [])
+    enriched = [
+        (t, role, why, market_cap_b(t), theme_exposure_pct(t),
+         t in PIVOTAL_TICKERS, t in MONOPOLY_TICKERS)
+        for (t, role, why) in tickers
+    ]
+    enriched.sort(key=lambda r: (-r[3], 0 if r[1] == "P" else (1 if r[1] == "S" else 2)))
+
+    chips_html = "".join(
+        _ticker_chip_html(t, mc, exp, piv, mon)
+        for (t, role, why, mc, exp, piv, mon) in enriched
+    )
+
+    st.markdown(
+        f"""
+        <div style='background:#161a26; border-radius:8px; padding:10px 14px; margin: 6px 0;
+                    border:1px solid #2a2f3d;'>
+          <div style='display:flex; justify-content:space-between; align-items:center;
+                      margin-bottom:6px;'>
+            <span style='font-size:13px; font-weight:600; color:#fff;'>
+              <span style='color:#8893a8; font-size:10px; margin-right:6px; font-weight:700;
+                           letter-spacing:0.04em;'>{sc_tier}</span>{layer}
+            </span>
+            {_tightness_pill_html(score)}
+          </div>
+          <div>{chips_html}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _render_external_row(ext_tickers):
+    """For demand-side stages (USERS): show tickers without tightness."""
+    enriched = [
+        (t, why, market_cap_b(t), theme_exposure_pct(t))
+        for (t, why) in ext_tickers
+    ]
+    enriched.sort(key=lambda r: -r[2])
+    chips_html = "".join(
+        _ticker_chip_html(t, mc, exp, False, False)
+        for (t, why, mc, exp) in enriched
+    )
+    st.markdown(
+        f"""
+        <div style='background:#161a26; border-radius:8px; padding:10px 14px; margin: 6px 0;
+                    border:1px solid #2a2f3d;'>
+          <div style='font-size:11px; color:#8893a8; margin-bottom:6px;
+                      letter-spacing:0.04em; text-transform:uppercase; font-weight:600;'>
+            Frontier model labs &amp; consumer surfaces
+          </div>
+          <div>{chips_html}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+# Render each stage card top-to-bottom
+for i, stage in enumerate(NARRATIVE_STAGES):
+    # Stage header — colored circle on the left timeline + title
+    st.markdown(
+        f"""
+        <div style='margin: 18px 0 4px 0;'>
+          <div style='display:flex; align-items:center; gap:12px;'>
+            <div style='width:32px; height:32px; border-radius:50%;
+                        background:{stage['color']}; display:flex;
+                        align-items:center; justify-content:center;
+                        font-size:18px; box-shadow: 0 0 0 3px rgba(255,255,255,0.06);'>
+              {stage['icon']}
+            </div>
+            <div style='flex:1;'>
+              <div style='font-size:16px; font-weight:800; color:#fff;'>{stage['label']}</div>
+              <div style='font-size:12px; color:#8893a8; margin-top:1px;'>{stage['description']}</div>
+            </div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    if stage.get("layers"):
+        for layer in stage["layers"]:
+            _render_layer_row(layer, year)
+    elif stage.get("external_tickers"):
+        _render_external_row(stage["external_tickers"])
+
+    # Vertical connector to next stage (skip after last)
+    if i < len(NARRATIVE_STAGES) - 1:
         st.markdown(
-            f"<div style='font-size:13px; font-weight:700; "
-            f"color:{TRACK_COLOR.get(track,'#fff')}; margin-bottom:4px'>"
-            f"{_TRACK_LABEL.get(track, track.upper())} · {len(_track_layers[track])} layers"
-            f"</div>",
+            "<div style='margin: 0 0 0 14px; padding: 6px 0; border-left: 2px dashed #2a2f3d; "
+            "height: 16px;'></div>",
             unsafe_allow_html=True,
         )
-        st.plotly_chart(fig, width='stretch', key=f"sankey_track_{track}_{year}")
-
-
-# ═════════════════════════════════════════════════════════════════════════════
-# LAYER DETAIL PANEL — pick any layer, see its full ticker roster + sparkline
-# This is the "double-click" on a chain: full transparency into the names
-# inside each layer with role, exposure, market cap, and rationale.
-# ═════════════════════════════════════════════════════════════════════════════
-st.markdown("---")
-st.markdown("### Layer Detail · pick any layer to see its full ticker roster")
-st.caption(
-    "**Role** = Stonehouse exposure tier on this layer (P=primary, S=secondary, K=kicker). "
-    "**Exp%** = AI-infra revenue exposure. **MCap** = market cap (USD billions, ~Apr 2026 estimate). "
-    "Pivotal (★) and sole-source flags surfaced on the right."
-)
-
-# Layer selectbox — sorted by 2027-30 tightness so the hot layers come first
-_fwd_avg = tight_df.loc[2027:2030].mean().sort_values(ascending=False)
-_layer_options = [L for L in _fwd_avg.index if L in LAYER_NAMES_DETAIL]
-_layer_labels = [
-    f"{LAYER_TIER.get(L, ('—','—'))[0]} · {L} "
-    f"({int(_fwd_avg[L])}/100 · {LAYER_TIER.get(L, ('—','—'))[1]})"
-    for L in _layer_options
-]
-_label_to_layer = dict(zip(_layer_labels, _layer_options))
-_default_label = _layer_labels[0] if _layer_labels else None
-selected_label = st.selectbox(
-    "Pick a supply-chain layer",
-    options=_layer_labels,
-    index=0 if _default_label else None,
-    key="layer_detail_pick",
-)
-sel_layer = _label_to_layer.get(selected_label) if selected_label else None
-
-if sel_layer:
-    sel_meta = LAYERS[sel_layer]
-    sel_tier, sel_track = LAYER_TIER.get(sel_layer, ("—", "—"))
-    sel_score_yr = float(tight_df.loc[year, sel_layer])
-    sel_score_fwd = float(_fwd_avg[sel_layer])
-
-    # Header row: layer metadata
-    hd1, hd2, hd3, hd4, hd5 = st.columns([1, 1, 1, 1, 2])
-    hd1.metric("Tier · Track", f"{sel_tier} · {sel_track}")
-    hd2.metric(f"Tightness {year}", f"{sel_score_yr:.0f}/100")
-    hd3.metric("Tightness 2027-30", f"{sel_score_fwd:.0f}/100")
-    hd4.metric("Lead time", f"{sel_meta['lead_time_yrs']} yr")
-    hd5.metric(
-        "Supply growth (yearly)",
-        f"{sel_meta['supply_growth_pct']*100:.0f}%",
-        delta=f"demand driver: {sel_meta['demand_driver']}",
-        delta_color="off",
-    )
-    st.caption(f"_{sel_meta['description']}_")
-
-    # Ticker table for this layer
-    detail_rows = []
-    for ticker, role, why in LAYER_NAMES_DETAIL.get(sel_layer, []):
-        mcap = market_cap_b(ticker)
-        exp  = theme_exposure_pct(ticker)
-        detail_rows.append({
-            "★": "★" if ticker in PIVOTAL_TICKERS else "",
-            "Ticker": ticker,
-            "Role": role,
-            "Exp %": exp,
-            "MCap $B": mcap,
-            "Sole-source": "Y" if ticker in MONOPOLY_TICKERS else "",
-            "Rationale": why,
-        })
-    detail_df = pd.DataFrame(detail_rows).sort_values(
-        ["Role", "MCap $B"], ascending=[True, False]
-    )
-
-    detail_left, detail_right = st.columns([2.2, 1.0])
-    with detail_left:
-        st.markdown(f"#### Tickers in **{sel_layer}**")
-        st.dataframe(
-            detail_df.style
-                .background_gradient(cmap="Greens", subset=["Exp %"])
-                .background_gradient(cmap="Blues",  subset=["MCap $B"]),
-            width='stretch',
-            height=min(400, 38 * (len(detail_df) + 1) + 30),
-            column_config={
-                "★": st.column_config.TextColumn(width="small"),
-                "Ticker": st.column_config.TextColumn(width="medium"),
-                "Role": st.column_config.TextColumn(
-                    width="small",
-                    help="P = primary play, S = secondary, K = kicker / private / restricted",
-                ),
-                "Exp %": st.column_config.NumberColumn(format="%d%%", width="small"),
-                "MCap $B": st.column_config.NumberColumn(format="$%.1fB", width="small"),
-                "Sole-source": st.column_config.TextColumn(width="small"),
-                "Rationale": st.column_config.TextColumn(width="large"),
-            },
-        )
-
-    with detail_right:
-        st.markdown("#### Tightness over time")
-        # Sparkline for selected layer
-        layer_color = sel_meta.get("color", "#888")
-        spark = go.Figure(go.Scatter(
-            x=YEARS,
-            y=tight_df[sel_layer],
-            mode="lines",
-            line=dict(color=layer_color, width=2.5),
-            fill="tozeroy",
-            fillcolor=hex_to_rgba(layer_color, 0.18),
-            hovertemplate="<b>%{x}</b><br>%{y:.0f}/100<extra></extra>",
-        ))
-        spark.add_vline(x=year, line_dash="dash", line_color="#ffd700", opacity=0.5)
-        spark.add_hline(y=70, line_dash="dot", line_color="#e74c3c", opacity=0.4)
-        spark.update_layout(
-            height=180,
-            paper_bgcolor="#0e1117", plot_bgcolor="#0e1117", font_color="white",
-            xaxis=dict(showgrid=False),
-            yaxis=dict(range=[0, 105], title="tightness /100"),
-            margin=dict(t=10, b=20, l=40, r=10),
-        )
-        st.plotly_chart(spark, width='stretch', key=f"layer_spark_{sel_layer}")
-
-        # Upstream/downstream chain hint by tier
-        st.markdown("#### Chain context")
-        same_track_layers = sorted(
-            [(L, _tier_num(LAYER_TIER[L][0])) for L in tight_df.columns
-             if LAYER_TIER.get(L, ("",""))[1] == sel_track],
-            key=lambda x: x[1]
-        )
-        sel_idx = next((i for i, (L, _) in enumerate(same_track_layers) if L == sel_layer), -1)
-        if sel_idx >= 0:
-            chain_html = "<div style='font-size:11px; line-height:1.7; color:#d0d4dc;'>"
-            for i, (L, tnum) in enumerate(same_track_layers):
-                tier_str = LAYER_TIER[L][0]
-                score = float(_fwd_avg[L])
-                marker = "▶ " if i == sel_idx else "  "
-                weight = "700" if i == sel_idx else "400"
-                color  = "#ffd700" if i == sel_idx else "#8893a8"
-                chain_html += (
-                    f"<div style='font-weight:{weight}; color:{color};'>"
-                    f"{marker}<b>{tier_str}</b> · {L} <span style='float:right'>{int(score)}</span>"
-                    f"</div>"
-                )
-            chain_html += "</div>"
-            st.markdown(chain_html, unsafe_allow_html=True)
 
 
 # ═════════════════════════════════════════════════════════════════════════════
