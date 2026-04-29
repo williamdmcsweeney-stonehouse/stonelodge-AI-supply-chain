@@ -1,3 +1,5 @@
+# pinned 2026-04-28 — bumping the file forces Streamlit Cloud to do a clean
+# pip install + container rebuild, busting any stale module cache.
 streamlit>=1.36,<2.0
 plotly>=5.20,<7.0
 pandas>=2.2,<3.0
