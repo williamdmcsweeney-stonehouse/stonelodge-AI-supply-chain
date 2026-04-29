@@ -42,6 +42,7 @@ from model import (
     build_macro_gap,
     build_tightness_scores,
     build_token_demand,
+    company_blurb,
     gap_summary,
     market_cap_b,
     power_inflection_year,
@@ -998,6 +999,169 @@ st.caption(
     "**Color of the chip** = AI-infra revenue exposure (green = pure-play). **Tightness pill** = "
     "supply tension in the selected year."
 )
+
+
+# ─── 🔍 Ticker Inspector — pick any ticker, see what it does + every layer it touches ───
+def _fmt_cap(b: float) -> str:
+    if b >= 1000: return f"${b/1000:.1f}T"
+    if b >= 10:   return f"${b:.0f}B"
+    if b >= 1:    return f"${b:.1f}B"
+    return f"${b*1000:.0f}M"
+
+
+_all_tickers_map = all_tickers_with_layers()
+_inspector_options = sorted(
+    _all_tickers_map.keys(),
+    key=lambda t: (-market_cap_b(t), -theme_exposure_pct(t), t),
+)
+_inspector_labels = ["— pick a ticker —"] + [
+    f"{t} · {_fmt_cap(market_cap_b(t))} · {theme_exposure_pct(t)}% AI"
+    for t in _inspector_options
+]
+_label_to_tk = dict(zip(_inspector_labels[1:], _inspector_options))
+
+st.markdown(
+    "<div style='background: rgba(255, 215, 0, 0.04); border: 1px solid rgba(255, 215, 0, 0.20); "
+    "border-radius:10px; padding: 12px 16px; margin: 12px 0;'>"
+    "<div style='font-size:13px; font-weight:700; color:#ffd700; margin-bottom:6px;'>"
+    "🔍 Ticker Inspector"
+    "</div>"
+    "<div style='font-size:11px; color:#8893a8; margin-bottom:8px;'>"
+    "Pick any ticker (179 names, sorted by market cap × AI exposure) to see what the company does and every supply-chain layer it touches."
+    "</div>"
+    "</div>",
+    unsafe_allow_html=True,
+)
+
+inspector_pick = st.selectbox(
+    "ticker_inspector",
+    _inspector_labels,
+    index=0,
+    label_visibility="collapsed",
+    key="ticker_inspector",
+)
+
+if inspector_pick and inspector_pick != "— pick a ticker —":
+    ins_tk = _label_to_tk[inspector_pick]
+    ins_mcap = market_cap_b(ins_tk)
+    ins_exp  = theme_exposure_pct(ins_tk)
+    ins_blurb = company_blurb(ins_tk)
+    ins_layers = _all_tickers_map.get(ins_tk, [])
+    ins_pivotal = ins_tk in PIVOTAL_TICKERS
+    ins_sole    = ins_tk in MONOPOLY_TICKERS
+
+    # Compute aggregate signal across all layers the ticker touches
+    fwd = tight_df.loc[2027:2030].mean()
+    layer_summaries = []
+    for layer, role, why in ins_layers:
+        if layer not in tight_df.columns:
+            continue
+        score_now = float(tight_df.loc[year, layer])
+        score_fwd = float(fwd[layer])
+        sc_tier, sc_track = LAYER_TIER.get(layer, ("—", "—"))
+        layer_summaries.append({
+            "layer": layer, "role": role, "why": why,
+            "tier": sc_tier, "track": sc_track,
+            "score_now": score_now, "score_fwd": score_fwd,
+            "color": LAYERS.get(layer, {}).get("color", "#888"),
+        })
+    layer_summaries.sort(key=lambda r: (-r["score_fwd"]))
+
+    # Top header card
+    flag_html = ""
+    if ins_pivotal:
+        flag_html += "<span style='color:#ffd700; font-weight:700; font-size:13px; margin-right:6px;'>★ PIVOTAL</span>"
+    if ins_sole:
+        flag_html += "<span style='color:#ffd700; font-weight:700; font-size:13px; margin-right:6px;'>§ SOLE-SOURCE</span>"
+
+    blurb_html = (
+        f"<div style='font-size:13px; color:#d0d4dc; line-height:1.55; margin: 8px 0 0 0;'>{ins_blurb}</div>"
+        if ins_blurb
+        else "<div style='font-size:11px; color:#8893a8; font-style:italic; margin: 8px 0 0 0;'>"
+             "_No company blurb on file — see per-layer rationale below for what this ticker does in this chain._"
+             "</div>"
+    )
+    st.markdown(
+        f"""
+        <div style='background:#161a26; border-radius:10px; padding:18px 22px; margin: 8px 0 4px 0;
+                    border:1px solid #2a2f3d;'>
+          <div style='display:flex; justify-content:space-between; align-items:flex-start; gap:18px;'>
+            <div style='flex:1.2;'>
+              <div style='font-size:24px; font-weight:800; color:#fff;'>
+                {ins_tk}
+              </div>
+              <div style='margin-top:4px;'>{flag_html}</div>
+              {blurb_html}
+            </div>
+            <div style='text-align:right;'>
+              <div style='font-size:10px; color:#8893a8; letter-spacing:0.06em; text-transform:uppercase; font-weight:700;'>Market Cap</div>
+              <div style='font-size:22px; font-weight:800; color:#fff; margin-bottom:8px;'>{_fmt_cap(ins_mcap)}</div>
+              <div style='font-size:10px; color:#8893a8; letter-spacing:0.06em; text-transform:uppercase; font-weight:700;'>AI-Infra Exposure</div>
+              <div style='font-size:22px; font-weight:800;
+                          color:{"#27ae60" if ins_exp >= 70 else ("#d4ac0d" if ins_exp >= 35 else "#e67e22")};'>
+                {ins_exp}%
+              </div>
+            </div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # Layer plays
+    st.markdown(
+        f"<div style='font-size:13px; font-weight:700; color:#fff; margin: 14px 0 6px 4px;'>"
+        f"Plays in {len(layer_summaries)} supply-chain layer{'s' if len(layer_summaries) != 1 else ''}"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+
+    if not layer_summaries:
+        st.info("No mapped supply-chain layers for this ticker.")
+    else:
+        for ls in layer_summaries:
+            track_pill_color = TRACK_COLOR.get(ls["track"], "#666")
+            role_label = {"P": "PRIMARY", "S": "SECONDARY", "K": "KICKER"}.get(ls["role"], ls["role"])
+            score_color = (
+                "#7a1d1d" if ls["score_fwd"] >= 85 else
+                "#9c2a2a" if ls["score_fwd"] >= 70 else
+                "#b85c1f" if ls["score_fwd"] >= 55 else
+                "#9a7a1a" if ls["score_fwd"] >= 40 else
+                "#3d6f30" if ls["score_fwd"] >= 25 else
+                "#1f4530"
+            )
+            st.markdown(
+                f"""
+                <div style='background:#0e1117; border-left:3px solid {ls['color']};
+                            border-radius:6px; padding:10px 14px; margin: 6px 0;'>
+                  <div style='display:flex; justify-content:space-between; align-items:center;
+                              margin-bottom:6px; gap:8px; flex-wrap:wrap;'>
+                    <div style='flex:1; min-width:200px;'>
+                      <span style='font-size:9px; color:#8893a8; font-weight:700; letter-spacing:0.05em;
+                                   margin-right:6px;'>{ls['tier']}</span>
+                      <span style='font-size:13px; font-weight:600; color:#fff;'>{ls['layer']}</span>
+                      <span style='background:{track_pill_color}; color:#fff; font-size:9px;
+                                   padding:1px 6px; border-radius:6px; font-weight:700;
+                                   letter-spacing:0.04em; margin-left:8px;'>{ls['track']}</span>
+                      <span style='background:rgba(255,215,0,0.12); color:#ffd700; font-size:9px;
+                                   padding:1px 6px; border-radius:6px; font-weight:700;
+                                   letter-spacing:0.04em; margin-left:4px;'>{role_label}</span>
+                    </div>
+                    <div style='text-align:right;'>
+                      <span style='background:{score_color}; color:#fff; padding:2px 8px;
+                                   border-radius:10px; font-size:10px; font-weight:700; margin-right:4px;'>
+                        2027-30 · {int(ls['score_fwd'])}/100
+                      </span>
+                      <span style='font-size:10px; color:#8893a8;'>· {year}: {int(ls['score_now'])}/100</span>
+                    </div>
+                  </div>
+                  <div style='font-size:11px; color:#d0d4dc; line-height:1.45;'>
+                    <i>Why this ticker on this layer:</i> {ls['why']}
+                  </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
 
 # Stage definitions — order is the actual narrative the user reads top-to-bottom
