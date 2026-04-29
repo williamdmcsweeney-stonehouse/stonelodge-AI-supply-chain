@@ -48,6 +48,7 @@ try:
         build_tightness_scores,
         build_token_demand,
         gap_summary,
+        load_excel_scenario,
         market_cap_b,
         power_inflection_year,
         theme_exposure_pct,
@@ -558,6 +559,110 @@ st.markdown(
     f"&nbsp;<span style='font-size:14px;color:#8893a8'>· {macro_name} × {preset_name}</span>",
     unsafe_allow_html=True,
 )
+
+# ═════════════════════════════════════════════════════════════════════════════
+# MODEL ASSUMPTIONS PANEL — what "1.0×" means in absolute terms
+# Lets a non-Excel auditor verify the curve at a glance. Pulls directly from
+# the underlying Stonehouse "Token and Data Build Out.xlsx" Base sheet.
+# ═════════════════════════════════════════════════════════════════════════════
+
+@st.cache_data
+def _assumptions_tables(scenario: str, ai_users_override_M: float):
+    """Return three small DataFrames + a calc dict summarizing the model curves.
+
+    Used by the Model Assumptions expander on the Macro tab. Reads the Excel
+    once (cached) so the panel stays cheap on slider re-runs.
+    """
+    raw = load_excel_scenario(scenario)
+    yrs_show = [2025, 2030, 2035, 2040]
+
+    def _row(label, fmt="{:,.0f}", scale=1.0):
+        try:
+            return [fmt.format(float(raw.loc[label, y]) * scale) for y in yrs_show]
+        except Exception:
+            return ["—"] * len(yrs_show)
+
+    # 1. Token demand drivers (with user override on AI Users 2025)
+    USERS_ROW = "AI Users (M's)"   # Excel label has an apostrophe — bind to a var
+    ROBOT_USE_ROW = "Usage per day (token) (T's)"
+    base_users_2025 = float(raw.loc[USERS_ROW, 2025]) if USERS_ROW in raw.index else 1100.0
+    user_scale = ai_users_override_M / base_users_2025
+    ai_users_row = [f"{float(raw.loc[USERS_ROW, y]) * user_scale:,.0f}" for y in yrs_show]
+    agent_mult_row = [f"{float(raw.loc['Agent Multiplier', y]):.1f}×" for y in yrs_show]
+    tok_drivers = pd.DataFrame({
+        "AI Users (M)": ai_users_row,
+        "Knowledge Workers (M)": _row("Knowledge Workers (M)"),
+        "Tokens / worker / day": _row("Tokens/worker per/day"),
+        "Agent Multiplier": agent_mult_row,
+        "Retail tokens (T/day)": _row("Retail", fmt="{:,.0f}", scale=user_scale),
+        "Enterprise tokens (T/day)": _row("Enterprise Used Per Day (T)"),
+        "Robotics tokens (T/day)": _row(ROBOT_USE_ROW, fmt="{:,.1f}"),
+    }, index=[str(y) for y in yrs_show]).T
+
+    # 2. Robotics fleet breakdown (M units)
+    robot_fleet = pd.DataFrame({
+        "Humanoid (M units)": _row("Humanoid", fmt="{:.2f}"),
+        "AVs (M units)": _row("AV", fmt="{:.2f}"),
+        "Industrial Robots (M units)": _row("Industrial Robot", fmt="{:.2f}"),
+        "Pro Service Robots (M units)": _row("Prof Service Robots", fmt="{:.2f}"),
+        "Home Robots (M units)": _row("Home Robots", fmt="{:.1f}"),
+        "Small Drones (M units)": _row("Small Drones", fmt="{:.1f}"),
+        "Total Fleet (M units)": _row("Total", fmt="{:.1f}"),
+    }, index=[str(y) for y in yrs_show]).T
+
+    return tok_drivers, robot_fleet
+
+
+with st.expander(
+    "🔍 **Model Assumptions** — what '1.0×' means in absolute terms (click to audit)",
+    expanded=False,
+):
+    st.caption(
+        "All sliders default to **1.0× = trust the Stonehouse Excel forecast as-is**. "
+        "2025 is the baseline year — every curve anchors there and the multipliers compound through 2040. "
+        "If you're unfamiliar with the underlying Excel, this is the at-a-glance audit."
+    )
+
+    tok_drivers_df, robot_fleet_df = _assumptions_tables(preset["scenario"], ai_users)
+
+    col_a, col_b = st.columns([1.0, 1.0])
+    with col_a:
+        st.markdown("**Token Demand Drivers** (Excel `Base` sheet)")
+        st.dataframe(tok_drivers_df, width="stretch", height=295)
+        st.caption(
+            "📌 The **Enterprise tokens** row is the *post-agent-multiplier* number we load — it grows "
+            "85→14,719 T/day, a 173× ramp that already bakes in agents going from 2.5× to 14.7×. "
+            "This is what calibrates the GW math to consensus (without it, demand collapses ~7×)."
+        )
+    with col_b:
+        st.markdown("**Robotics Fleet Breakdown** (units, not tokens)")
+        st.dataframe(robot_fleet_df, width="stretch", height=295)
+        st.caption(
+            "📌 Humanoids are **20K units in 2025** (Optimus, Figure, Unitree pilots) → 47.4M by 2040. "
+            "They're <1% of robotics tokens today; the slider mainly stresses the 2035-2040 tail."
+        )
+
+    # "Your sliders" — what the user has dialed in right now vs default
+    st.markdown("**Your current slider settings (vs default 1.0×)**")
+    slider_cols = st.columns(5)
+    slider_cols[0].metric("AI Users 2025", f"{ai_users:,}M",
+                          delta=f"{(ai_users/1400 - 1)*100:+.0f}% vs Base 1,400M" if ai_users != 1400 else "Base", delta_color="off")
+    slider_cols[1].metric("Agent Multiplier scale", f"{agent_mult:.2f}×",
+                          delta=f"{(agent_mult-1)*100:+.0f}% vs default" if agent_mult != 1.0 else "Default", delta_color="off")
+    slider_cols[2].metric("Humanoid Robotics scale", f"{humanoid:.2f}×",
+                          delta=f"{(humanoid-1)*40:+.0f}% to robotics tokens" if humanoid != 1.0 else "Default (dampened)", delta_color="off")
+    slider_cols[3].metric("Enterprise+Retail scale", f"{enterprise:.2f}×",
+                          delta=f"{(enterprise-1)*100:+.0f}% to consumer+enterprise" if enterprise != 1.0 else "Default", delta_color="off")
+    slider_cols[4].metric("Efficiency doubling", f"{doubling:.2f} yr",
+                          delta="faster GPU efficiency = lower demand" if doubling < 1.85 else "slower = higher demand" if doubling > 1.85 else "Base (Epoch AI Jun-25)",
+                          delta_color="off")
+
+    st.caption(
+        "**How the curves combine:** Enterprise tokens × Agent slider × Enterprise+Retail slider. "
+        "Retail tokens × AI Users slider × Enterprise+Retail slider. "
+        "Robotics tokens × Humanoid slider (dampened: 2.0× → +40%, not +100%). "
+        "Then total cloud tokens get divided by fleet-weighted GPU efficiency to derive GW demand."
+    )
 
 # ═════════════════════════════════════════════════════════════════════════════
 # SECTION 0 (NEW TOP): MACRO GAP — colleague's Efficiency Overlay framework
