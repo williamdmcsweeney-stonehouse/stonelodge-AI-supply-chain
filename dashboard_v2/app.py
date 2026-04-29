@@ -182,6 +182,19 @@ st.caption(
     f"</span>",
     unsafe_allow_html=True,
 )
+
+# Global year scrubber — drives Flow Map AND Bottleneck Map (visible across tabs)
+st.markdown(
+    "<div style='font-size:11px; color:#8893a8; text-transform:uppercase; "
+    "letter-spacing:0.08em; margin: 6px 0 2px 0;'>Map Year · drives flow + bottleneck color</div>",
+    unsafe_allow_html=True,
+)
+year = st.slider(
+    "year_top",
+    min_value=2025, max_value=2042, value=2028, step=1,
+    label_visibility="collapsed",
+    key="year_top",
+)
 st.markdown("<div style='border-bottom:1px solid #2a2f3d; margin:8px 0 14px 0'></div>", unsafe_allow_html=True)
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -307,19 +320,20 @@ inflection = power_inflection_year(inf_df)
 gap_stats = gap_summary(macro_df)
 
 # ═════════════════════════════════════════════════════════════════════════════
-# TABS — split the page into Flow & Macro / Bottleneck Map / Easiest Bets
+# TABS — Macro / Flow Map / Bottleneck Map / Easiest Bets
 # Each tab block uses manual __enter__/__exit__ so we don't have to reindent
 # 800+ lines of legacy rendering code. Streamlit's DeltaGenerator stack is
 # updated by these calls the same way `with tab_x:` would.
 # ═════════════════════════════════════════════════════════════════════════════
-tab_flow, tab_map, tab_bets = st.tabs([
-    "🌊 Flow & Macro",
+tab_macro, tab_flow, tab_map, tab_bets = st.tabs([
+    "📊 Macro",
+    "🔗 Flow Map",
     "🗺️ Bottleneck Map",
     "💰 Easiest Bets",
 ])
 
-# ── TAB 1: Flow & Macro ──────────────────────────────────────────────────────
-tab_flow.__enter__()
+# ── TAB 1: Macro (gap chart, capex flow, fleet eff lag) ──────────────────────
+tab_macro.__enter__()
 
 st.markdown(
     "## AI Infrastructure Supply Chain "
@@ -522,14 +536,14 @@ if use_vintaged and "fleet_blended_eff_tokens_per_kwh" in inf_df.columns:
         st.plotly_chart(eff_fig, width='stretch')
 
 
+# Year scrubber lives in the global header above the tabs (line ~190); the
+# value `year` is already set there and visible across all tabs.
+
 # ═════════════════════════════════════════════════════════════════════════════
-# YEAR SCRUBBER (drives the flow visualization + bottleneck map)
+# Close TAB 1 (Macro) — open TAB 2 (Flow Map)
 # ═════════════════════════════════════════════════════════════════════════════
-st.markdown("---")
-year = st.slider(
-    "**Map Year** — drag to see how bottlenecks shift over the cycle",
-    min_value=2025, max_value=2042, value=2028, step=1,
-)
+tab_macro.__exit__(None, None, None)
+tab_flow.__enter__()
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -556,6 +570,15 @@ def _fmt_big(v: float) -> str:
     if av >= 1e3:  return f"{v/1e3:.1f}K"
     if av >= 10:   return f"{v:.0f}"
     return f"{v:.1f}"
+
+
+def hex_to_rgba(hex_color: str, alpha: float = 0.18) -> str:
+    """Convert #rrggbb hex to rgba(r,g,b,alpha) for Plotly fill."""
+    h = hex_color.lstrip("#")
+    if len(h) != 6:
+        return f"rgba(150,150,150,{alpha})"
+    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    return f"rgba({r},{g},{b},{alpha})"
 
 
 # Pull live values for selected year + 2025 baseline (for delta)
@@ -963,7 +986,273 @@ else:
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# Close TAB 1 (Flow & Macro) — open TAB 2 (Bottleneck Map)
+# PER-TRACK SANKEY — full supply-chain flow per track, tier-ordered.
+# Four tracks (silicon / dc / power / defense) each rendered as their own
+# Sankey, so you can see the actual chain of dependencies inside each track
+# rather than the high-level 6-stage chevron alone.
+# ═════════════════════════════════════════════════════════════════════════════
+st.markdown("---")
+st.markdown(f"### Per-Track Supply Chain · tier-ordered layer flow · {year}")
+st.caption(
+    "Four parallel tracks. Within each: layers ordered left-to-right by **T-tier** "
+    "(T1 inputs → T15 endpoints). **Node color = tightness** in the selected year "
+    "(red = binding, green = balanced). **Hover** any node for tickers + tightness number, "
+    "**hover** any link for the upstream/downstream relationship."
+)
+
+def _tightness_color(score: float, alpha: float = 1.0) -> str:
+    """Return rgba color for a tightness score 0-100."""
+    if score >= 85:   r, g, b = 122, 29, 29     # deep red
+    elif score >= 70: r, g, b = 156, 42, 42     # red
+    elif score >= 55: r, g, b = 184, 92, 31     # orange
+    elif score >= 40: r, g, b = 154, 122, 26    # amber
+    elif score >= 25: r, g, b = 61, 111, 48     # green
+    else:             r, g, b = 31, 69, 48      # deep green
+    return f"rgba({r},{g},{b},{alpha})"
+
+
+# Build per-track layer ordering (by T-tier number, then alpha)
+def _tier_num(t: str) -> int:
+    try: return int(t.lstrip("T"))
+    except Exception: return 99
+
+_track_layers: dict[str, list[str]] = {"silicon": [], "dc": [], "power": [], "defense": []}
+for layer, (tier, track) in LAYER_TIER.items():
+    if layer in tight_df.columns:
+        _track_layers[track].append((layer, _tier_num(tier), tier))
+for track in _track_layers:
+    _track_layers[track].sort(key=lambda x: (x[1], x[0]))
+
+
+def render_track_sankey(track: str, layer_tuples: list, year_idx: int):
+    """One Sankey per track, layers ordered by tier."""
+    if not layer_tuples:
+        return None
+    layers = [t[0] for t in layer_tuples]
+    tiers  = [t[2] for t in layer_tuples]
+    scores = [float(tight_df.loc[year_idx, L]) for L in layers]
+
+    # Node labels: "T-tier · Layer (score/100)"
+    node_labels = [
+        f"{tier} · {layer}<br><span style='font-size:10px'>{int(score)}/100</span>"
+        for layer, tier, score in zip(layers, tiers, scores)
+    ]
+    node_colors = [_tightness_color(s, 0.85) for s in scores]
+    # Hover: top P-tier tickers + score
+    node_hover = []
+    for layer, tier, score in zip(layers, tiers, scores):
+        primaries = [n for n, t, _ in LAYER_NAMES_DETAIL.get(layer, []) if t == "P"][:5]
+        chip_str = ", ".join(primaries) if primaries else "—"
+        node_hover.append(
+            f"<b>{tier} · {layer}</b><br>"
+            f"Tightness {year_idx}: {int(score)}/100<br>"
+            f"Top plays: {chip_str}"
+        )
+
+    # Edges: connect each layer to the next tier-up layer (tier-1 → tier+1 chain)
+    sources, targets, values, link_colors, link_hover = [], [], [], [], []
+    for i in range(len(layers) - 1):
+        sources.append(i)
+        targets.append(i + 1)
+        # Link width = average tightness of the two endpoints
+        avg = (scores[i] + scores[i + 1]) / 2
+        values.append(max(1.0, avg))  # always ≥1 so links remain visible
+        link_colors.append(_tightness_color(avg, 0.30))
+        link_hover.append(
+            f"<b>{tiers[i]} {layers[i]}</b> → <b>{tiers[i+1]} {layers[i+1]}</b><br>"
+            f"Avg tightness: {int(avg)}/100"
+        )
+
+    fig = go.Figure(go.Sankey(
+        arrangement="snap",
+        node=dict(
+            pad=18, thickness=18,
+            line=dict(color="#0e1117", width=0.5),
+            label=node_labels, color=node_colors,
+            customdata=node_hover,
+            hovertemplate="%{customdata}<extra></extra>",
+        ),
+        link=dict(
+            source=sources, target=targets, value=values,
+            color=link_colors,
+            customdata=link_hover,
+            hovertemplate="%{customdata}<extra></extra>",
+        ),
+    ))
+    fig.update_layout(
+        height=max(180, 55 * len(layers)),
+        paper_bgcolor="#0e1117", plot_bgcolor="#0e1117",
+        font=dict(color="#e0e3eb", size=11),
+        margin=dict(t=10, b=10, l=10, r=10),
+    )
+    return fig
+
+
+_TRACK_LABEL = {
+    "silicon": "Silicon (T1 inputs → T5 networking)",
+    "dc":      "Data Center (T7 build → T8 cooling)",
+    "power":   "Power & Grid (T9 generation → T14 galvanizing)",
+    "defense": "Defense Adjacent (T15)",
+}
+trk1, trk2 = st.columns(2)
+for col, track in zip([trk1, trk2, trk1, trk2], ["silicon", "power", "dc", "defense"]):
+    fig = render_track_sankey(track, _track_layers[track], year)
+    if fig is None:
+        continue
+    with col:
+        st.markdown(
+            f"<div style='font-size:13px; font-weight:700; "
+            f"color:{TRACK_COLOR.get(track,'#fff')}; margin-bottom:4px'>"
+            f"{_TRACK_LABEL.get(track, track.upper())} · {len(_track_layers[track])} layers"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+        st.plotly_chart(fig, width='stretch', key=f"sankey_track_{track}_{year}")
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# LAYER DETAIL PANEL — pick any layer, see its full ticker roster + sparkline
+# This is the "double-click" on a chain: full transparency into the names
+# inside each layer with role, exposure, market cap, and rationale.
+# ═════════════════════════════════════════════════════════════════════════════
+st.markdown("---")
+st.markdown("### Layer Detail · pick any layer to see its full ticker roster")
+st.caption(
+    "**Role** = Stonehouse exposure tier on this layer (P=primary, S=secondary, K=kicker). "
+    "**Exp%** = AI-infra revenue exposure. **MCap** = market cap (USD billions, ~Apr 2026 estimate). "
+    "Pivotal (★) and sole-source flags surfaced on the right."
+)
+
+# Layer selectbox — sorted by 2027-30 tightness so the hot layers come first
+_fwd_avg = tight_df.loc[2027:2030].mean().sort_values(ascending=False)
+_layer_options = [L for L in _fwd_avg.index if L in LAYER_NAMES_DETAIL]
+_layer_labels = [
+    f"{LAYER_TIER.get(L, ('—','—'))[0]} · {L} "
+    f"({int(_fwd_avg[L])}/100 · {LAYER_TIER.get(L, ('—','—'))[1]})"
+    for L in _layer_options
+]
+_label_to_layer = dict(zip(_layer_labels, _layer_options))
+_default_label = _layer_labels[0] if _layer_labels else None
+selected_label = st.selectbox(
+    "Pick a supply-chain layer",
+    options=_layer_labels,
+    index=0 if _default_label else None,
+    key="layer_detail_pick",
+)
+sel_layer = _label_to_layer.get(selected_label) if selected_label else None
+
+if sel_layer:
+    sel_meta = LAYERS[sel_layer]
+    sel_tier, sel_track = LAYER_TIER.get(sel_layer, ("—", "—"))
+    sel_score_yr = float(tight_df.loc[year, sel_layer])
+    sel_score_fwd = float(_fwd_avg[sel_layer])
+
+    # Header row: layer metadata
+    hd1, hd2, hd3, hd4, hd5 = st.columns([1, 1, 1, 1, 2])
+    hd1.metric("Tier · Track", f"{sel_tier} · {sel_track}")
+    hd2.metric(f"Tightness {year}", f"{sel_score_yr:.0f}/100")
+    hd3.metric("Tightness 2027-30", f"{sel_score_fwd:.0f}/100")
+    hd4.metric("Lead time", f"{sel_meta['lead_time_yrs']} yr")
+    hd5.metric(
+        "Supply growth (yearly)",
+        f"{sel_meta['supply_growth_pct']*100:.0f}%",
+        delta=f"demand driver: {sel_meta['demand_driver']}",
+        delta_color="off",
+    )
+    st.caption(f"_{sel_meta['description']}_")
+
+    # Ticker table for this layer
+    detail_rows = []
+    for ticker, role, why in LAYER_NAMES_DETAIL.get(sel_layer, []):
+        mcap = market_cap_b(ticker)
+        exp  = theme_exposure_pct(ticker)
+        detail_rows.append({
+            "★": "★" if ticker in PIVOTAL_TICKERS else "",
+            "Ticker": ticker,
+            "Role": role,
+            "Exp %": exp,
+            "MCap $B": mcap,
+            "Sole-source": "Y" if ticker in MONOPOLY_TICKERS else "",
+            "Rationale": why,
+        })
+    detail_df = pd.DataFrame(detail_rows).sort_values(
+        ["Role", "MCap $B"], ascending=[True, False]
+    )
+
+    detail_left, detail_right = st.columns([2.2, 1.0])
+    with detail_left:
+        st.markdown(f"#### Tickers in **{sel_layer}**")
+        st.dataframe(
+            detail_df.style
+                .background_gradient(cmap="Greens", subset=["Exp %"])
+                .background_gradient(cmap="Blues",  subset=["MCap $B"]),
+            width='stretch',
+            height=min(400, 38 * (len(detail_df) + 1) + 30),
+            column_config={
+                "★": st.column_config.TextColumn(width="small"),
+                "Ticker": st.column_config.TextColumn(width="medium"),
+                "Role": st.column_config.TextColumn(
+                    width="small",
+                    help="P = primary play, S = secondary, K = kicker / private / restricted",
+                ),
+                "Exp %": st.column_config.NumberColumn(format="%d%%", width="small"),
+                "MCap $B": st.column_config.NumberColumn(format="$%.1fB", width="small"),
+                "Sole-source": st.column_config.TextColumn(width="small"),
+                "Rationale": st.column_config.TextColumn(width="large"),
+            },
+        )
+
+    with detail_right:
+        st.markdown("#### Tightness over time")
+        # Sparkline for selected layer
+        layer_color = sel_meta.get("color", "#888")
+        spark = go.Figure(go.Scatter(
+            x=YEARS,
+            y=tight_df[sel_layer],
+            mode="lines",
+            line=dict(color=layer_color, width=2.5),
+            fill="tozeroy",
+            fillcolor=hex_to_rgba(layer_color, 0.18),
+            hovertemplate="<b>%{x}</b><br>%{y:.0f}/100<extra></extra>",
+        ))
+        spark.add_vline(x=year, line_dash="dash", line_color="#ffd700", opacity=0.5)
+        spark.add_hline(y=70, line_dash="dot", line_color="#e74c3c", opacity=0.4)
+        spark.update_layout(
+            height=180,
+            paper_bgcolor="#0e1117", plot_bgcolor="#0e1117", font_color="white",
+            xaxis=dict(showgrid=False),
+            yaxis=dict(range=[0, 105], title="tightness /100"),
+            margin=dict(t=10, b=20, l=40, r=10),
+        )
+        st.plotly_chart(spark, width='stretch', key=f"layer_spark_{sel_layer}")
+
+        # Upstream/downstream chain hint by tier
+        st.markdown("#### Chain context")
+        same_track_layers = sorted(
+            [(L, _tier_num(LAYER_TIER[L][0])) for L in tight_df.columns
+             if LAYER_TIER.get(L, ("",""))[1] == sel_track],
+            key=lambda x: x[1]
+        )
+        sel_idx = next((i for i, (L, _) in enumerate(same_track_layers) if L == sel_layer), -1)
+        if sel_idx >= 0:
+            chain_html = "<div style='font-size:11px; line-height:1.7; color:#d0d4dc;'>"
+            for i, (L, tnum) in enumerate(same_track_layers):
+                tier_str = LAYER_TIER[L][0]
+                score = float(_fwd_avg[L])
+                marker = "▶ " if i == sel_idx else "  "
+                weight = "700" if i == sel_idx else "400"
+                color  = "#ffd700" if i == sel_idx else "#8893a8"
+                chain_html += (
+                    f"<div style='font-weight:{weight}; color:{color};'>"
+                    f"{marker}<b>{tier_str}</b> · {L} <span style='float:right'>{int(score)}</span>"
+                    f"</div>"
+                )
+            chain_html += "</div>"
+            st.markdown(chain_html, unsafe_allow_html=True)
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Close TAB 2 (Flow Map) — open TAB 3 (Bottleneck Map)
 # ═════════════════════════════════════════════════════════════════════════════
 tab_flow.__exit__(None, None, None)
 tab_map.__enter__()
@@ -1219,15 +1508,6 @@ _caption_placeholder.caption(
 
 # Top 10 — cards with sparklines (2 columns × 5 rows)
 top10 = bets_df.head(10)
-
-def hex_to_rgba(hex_color: str, alpha: float = 0.18) -> str:
-    """Convert #rrggbb hex to rgba(r,g,b,alpha) for Plotly fill."""
-    h = hex_color.lstrip("#")
-    if len(h) != 6:
-        return f"rgba(150,150,150,{alpha})"
-    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
-    return f"rgba({r},{g},{b},{alpha})"
-
 
 def render_bet_card(row, sparkline_layer: str, layer_color: str):
     """One bet card: ticker headline + tightness sparkline + rationale."""
