@@ -456,8 +456,23 @@ with st.sidebar.expander("Advanced — token demand"):
              "multiplier ramp (2.5x in 2025 → 14.7x in 2040). 1.0 = trust the Stonehouse "
              "forecast as-is. <1.0 = slower agent adoption. >1.0 = faster.",
     )
-    humanoid = st.slider("Humanoid Units", 0.1, 5.0, preset["humanoid"], 0.1)
-    enterprise = st.slider("Enterprise Intensity", 0.5, 2.0, preset["enterprise"], 0.1)
+    humanoid = st.slider(
+        "Humanoid Robotics — scale", 0.1, 5.0, preset["humanoid"], 0.1,
+        help="Multiplier on the Excel robotics token row ('Usage per day (token) (T's)') — "
+             "humanoid fleet + AV inference + teleop streaming, applied to ALL years 2025-2042. "
+             "1.0 = trust the Stonehouse forecast as-is. Slider is dampened: 2.0 = +40% to "
+             "robotics tokens (not +100%), 0.5 = -20%. Robotics is <2% of total tokens today, "
+             "so this lever mainly matters in the 2035+ tail when humanoid fleets become "
+             "material (Optimus, Figure, Unitree, BD).",
+    )
+    enterprise = st.slider(
+        "Enterprise + Retail Adoption — scale", 0.5, 2.0, preset["enterprise"], 0.1,
+        help="Multiplier on BOTH the retail AND enterprise rows of the Excel forecast, applied "
+             "linearly to all years (1.5 = +50% to both consumer and enterprise tokens). "
+             "Captures depth of AI workflow integration — copilots per knowledge worker, "
+             "queries per consumer per day, agents per enterprise function. Stacks "
+             "multiplicatively with the Agent Multiplier slider above.",
+    )
 
 with st.sidebar.expander("Advanced — supply growth overrides"):
     custom_supply = {}
