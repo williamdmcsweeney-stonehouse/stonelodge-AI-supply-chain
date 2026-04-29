@@ -474,19 +474,13 @@ The system runs four distinct training programs. Each has a different goal, cade
 **Launcher:** `scripts/run-agent-deep-training.bat`
 **Cadence:** Nightly 1:00 AM ET (Mon–Fri) via `Stonehouse-V3Training` scheduled task, plus 15 sessions appended to autopilot PM Phase 9b, plus 60 on weekends.
 **Model:** Opus 4.7 (synthesis) + Haiku 4.5 (classification)
-**Status (as of 2026-04-23):** Payments COMPLETE (346/346), portfolio-manager COMPLETE (116/116), value-portfolio-manager 73% (54/74). **Other sector agents received only shallow 8-23 session curricula; 8 agents have zero V3 coverage.** See `data/agent-training-progress.json` for per-agent detail.
-**Output:** Markdown knowledge files in `.claude/agent-memory/<agent>/` (~480K words for payments alone).
-**Honest grade:** Payments agent at B+/A−. Centerpiece PAY deep dive scored 74/100 from PM. 3 of 11 payments capstones corrupted (interpreted "Capstone" as a company name). See `shared/v4_master_specification.md` for the evolution plan.
+**Status:** See `data/agent-training-progress.json` for live per-agent session counts.
+**Output:** Markdown knowledge files in `.claude/agent-memory/<agent>/`.
 
 ### Program 1.5 — V4 Industry Mastery (successor to V3)
 **Goal:** "Perfect knowledge" per sector — every company that ever was, all numbers, all moats, all M&A, all management transitions — structured in three layers (Industry Map + Case Library + On-Demand Primary Source Retrieval).
 **Specification:** `.claude/agent-memory/shared/v4_master_specification.md`
-**Status (2026-04-25 EOD):**
-  - **5 sector agents at A− complete** (full V4 stack: IM + 50-case Library + 11 Modules): payments, tech-ai, healthcare, consumer, industrials.
-  - **2 sector agents at 35-case partial** (IM + 35 cases + 11 Modules — 15 cases short of 50-case spec): semis, medtech. Verified 2026-04-28.
-  - **4 sector agents at IM-only** (Industry Maps built, Case Libraries + Modules pending): luxury, cybersec, saas, biopharma.
-  - **6 tool agents at A− complete** (V4 skill libraries built): forensic-accounting, earnings-transcript, financial-filings, app-intelligence, sentiment, quant-equity.
-  - **2 PM agents at A complete** (V3 + cross-sector V4 overlay).
+**Status:** See `.claude/agent-memory/shared/v4_master_specification.md` for current per-agent grades and completion levels.
 **Measured cost per V4 sector phase:** Industry Map ~$5, Case Library ~$38 (50 cases), Modules ~$10 (11 sessions). Full sector build ~$53.
 **Integration:** Uses same training execution pipeline as V3 (`agent-deep-training.js` queue, Program 3 CLI sessions, autopilot Phase 9b). Only the *content* of sessions changes, not the mechanism.
 
@@ -520,13 +514,7 @@ The PIP has four engines that map to four jobs:
 | Pool F — Management career database | Proxy statements + news | `scripts/pool-f-management-db.js` | **Built ✓** → `db/pool_f.db` |
 | Pool G — Historical multiples | Yahoo Finance (30yr free) + Bloomberg | `scripts/pool-g-multiples-history.js` | **Built ✓** (yahoo-finance2) |
 
-Layer 0 (information pools A-D) is prerequisite infrastructure for the full Engine 1-4 vision. Engines run with partial data today and improve as Layer 0 fills in.
-
-**PIP build order (8 weeks per spec):**
-- Weeks 1–2: Mosaic + postmortem ✓ · Pool A archive sweep (filings backfill)
-- Weeks 3–4: Pool B/D scrapers · Engine 1A (Anomaly Scanner) · Engine 1B (Analog Miner)
-- Weeks 5–6: Thesis tracker (kill conditions) · Kill-Condition Watcher · Red-Team Thursdays
-- Weeks 7–8: Quarterly re-underwrite · Variant Perception Audit · Whitespace Finder
+Layer 0 pools are the primary source foundation for V4 training and all Engines. All pools and engines are built — see Product Roadmap section for scripts and status.
 
 ### Program 3 — Tool Agent Training
 **Goal:** Keep each agent's tool-use sharp — querying live data, running scripts, interpreting real output.
@@ -596,16 +584,6 @@ After each earnings report, `scripts/earnings-postmortem.js`:
 5. Generates a lessons-learned summary stored in agent memory
 6. Feeds accuracy data back into future predictions
 
-## Known Data Source Quirks
-- **Yahoo Finance**: `ADYEN.AS`, `WISE.L`, `MC.PA` need exchange suffixes. `SQ` maps to `XYZ`.
-- **Google Trends**: Returns 0 on weekends/holidays for some tickers. Use 5-year lookback for stability.
-- **Trustpilot**: Rate-limits aggressively. Use 2-second delays between pages. Wayback Machine for historical.
-- **SEC EDGAR**: User-Agent required (`Stonehouse Capital research@stonehouse.com`). CIK must be zero-padded to 10 digits.
-- **Apple RSS Rankings**: Max 200 results per genre. Check multiple genres for coverage.
-- **Google Play Scraper**: `google-play-scraper` npm package. Sometimes returns stale data — verify with direct Play Store check.
-- **Brazil Pix BCB**: Stats page is HTML, not API. Parse the latest monthly volume from the table.
-- **Yahoo earningsDate**: Comes from `calendarEvents` module. Can be null or stale for non-US stocks.
-
 ## User & Platform Philosophy
 
 **Internal investment edge, not a product to sell.** The platform exists to generate alpha through the compounding flywheel: scrape → analyze → predict → report → score → learn → repeat. Optimize for investment accuracy and signal quality, not features for external users.
@@ -616,27 +594,7 @@ After each earnings report, `scripts/earnings-postmortem.js`:
 
 ## Product Roadmap (Long-Term)
 
-### PIP Build Status (as of 2026-04-20)
-| Engine | Status | Script |
-|--------|--------|--------|
-| Engine 2 — Earnings Mosaic | ✅ Built | `earnings-mosaic-orchestrator.js` |
-| Engine 1A — Anomaly Scanner | ✅ Built | `new-idea-scanner.js` |
-| Engine 4A — Kill-Condition Watcher | ✅ Built | `kill-condition-watcher.js` |
-| Engine 1B — Analog Miner | ✅ Built | `analog-miner.js` |
-| Engine 3 — Quarterly Re-Underwrite | ✅ Built | `quarterly-reunderwrite.js` |
-| Engine 4B — Red-Team Thursdays | ✅ Built | `red-team-orchestrator.js` (script done, schedule TBD) |
-| Engine 4C — Variant Perception Audit | ✅ Built | `variant-perception-audit.js` |
-| Engine 1C — Whitespace Finder | ✅ Built (2026-04-25) | `whitespace-finder.js` (web_search; ~$2.20/ticker) |
-| PM cross-sector overlay generator | ✅ Built (2026-04-25) | `v4-pm-overlay-generator.js` — produces 11 modules per PM × 2 PMs from V4 substrate |
-| Layer 0 Pool A (filings backfill) | ✅ Built | `pool-a-ingest.js` → `db/pool_a.db` |
-| Layer 0 Pool B (consensus estimates) | ✅ Built | `bloomberg_layer0_sync.py --pool b` → `db/layer0.db` |
-| Layer 0 Pool C (short interest) | ✅ Built | `bloomberg_layer0_sync.py --pool c` → `db/layer0.db` |
-| Layer 0 Pool D (news/transcript archive) | ✅ Built | `pool-d-ingest.js` → `db/pool_d.db` |
-| Layer 0 Pool E (M&A history) | ✅ Built (2026-04-25) | `pool-e-ma-database.js` → `db/pool_e.db` (free, from 10-Ks) |
-| Layer 0 Pool F (management careers) | ✅ Built | `pool-f-management-db.js` → `db/pool_f.db` |
-| Layer 0 Pool G (multiples history) | ✅ Built | `pool-g-multiples-history.js` (yahoo-finance2) |
-
-### Thesis Files (as of 2026-04-20)
+### Thesis Files
 Kill conditions seeded for core positions: WISE, PAY, NU, MELI, ADYEN
 Path: `.claude/agent-memory/shared/theses/<TICKER>/thesis.json`
 Add new thesis by creating this file — kill-condition-watcher auto-discovers it.
@@ -648,8 +606,7 @@ Add new thesis by creating this file — kill-condition-watcher auto-discovers i
 
 ## Database Storage Monitor
 
-Supabase free tier: 500 MB. As of 2026-03-22: ~56 MB (11%).
-**Alert at 65% (325 MB).** Options: (A) Summarize historical filings >2yr old via Haiku (~$0.50), or (B) Upgrade Supabase Pro ($25/month for 8 GB).
+Supabase free tier: 500 MB. **Alert at 65% (325 MB).** Options: (A) Summarize historical filings >2yr old via Haiku (~$0.50), or (B) Upgrade Supabase Pro ($25/month for 8 GB).
 Check command: `node -e "import{PrismaClient}from'@prisma/client';const p=new PrismaClient();(async()=>{const r=await p.\$queryRaw\`SELECT SUM(LENGTH(content)) as bytes FROM \"AnalystDocument\"\`;console.log((Number(r[0].bytes)/1024/1024).toFixed(0)+' MB of 500 MB');await p.\$disconnect()})()"`
 
 ## Cost
@@ -683,7 +640,7 @@ Check command: `node -e "import{PrismaClient}from'@prisma/client';const p=new Pr
 | **Total automated (steady state, before Continuing Ed)** | | **~$130-145/mo** |
 | **Total automated (full state, with Continuing Ed)** | | **~$170-215/mo** |
 
-### Model policy (revised 2026-04-25 — cost-optimization pass)
+### Model policy
 **Opus 4.7** (`claude-opus-4-7`) — reasoning-heavy workloads only:
 - Earnings Mosaic prediction
 - Quarterly Re-Underwrite (Engine 3)
@@ -697,11 +654,11 @@ Check command: `node -e "import{PrismaClient}from'@prisma/client';const p=new Pr
 - V4 case library / module generators (one-time builds; no recurring cost)
 
 **Sonnet 4.6** (`claude-sonnet-4-6`) — pattern matching, structured extraction, rubric-following:
-- Pool E M&A extraction (changed 2026-04-25)
-- Pool F management extraction (changed 2026-04-25)
+- Pool E M&A extraction
+- Pool F management extraction
 - Kill-Condition Watcher (Engine 4A)
 - Red-Team Thursday (Engine 4B)
-- Claude Code CLI / Overnight tool-use practice (changed 2026-04-25 — was Opus)
+- Claude Code CLI / Overnight tool-use practice
 
 **Haiku 4.5** (`claude-haiku-4-5-20251001`) — high-volume classification, indexing, throwaway summaries:
 - New Idea Scanner (Engine 1A)
@@ -709,7 +666,7 @@ Check command: `node -e "import{PrismaClient}from'@prisma/client';const p=new Pr
 - Weekly lessons digest (Phase 7 of weekend-study)
 - Earnings postmortem scoring
 
-### Prompt caching (revised 2026-04-25)
+### Prompt caching
 Enabled on every script with a stable system-prompt prefix — pays $1.50/MTok on cache reads vs $15/MTok uncached (Opus) or $3/MTok uncached (Sonnet):
 - **Analyst chat** — large persona prompt cached across every message in a conversation
 - **Earnings autopilot** — `EARNINGS_SYSTEM_PROMPT` cached across all tickers in a run
@@ -720,10 +677,5 @@ Enabled on every script with a stable system-prompt prefix — pays $1.50/MTok o
 - **Weekend Study Phase 8** — per-agent persona cached
 - **Variant Perception Audit / Quarterly Re-Underwrite / Analog Miner / Whitespace Finder / Cross-Agent Synthesis** — system prompts cached
 
-### Batch API (planned next session)
-Anthropic's Batch API gives 50% off on async-tolerant workloads (24-hr SLA). Candidates for conversion:
-- Pool E monthly refresh — currently sequential, batch-tolerant
-- Pool F monthly refresh — currently sequential, batch-tolerant
-- Weekend Study Phase 8 (per-agent synthesis) — currently sequential, batch-tolerant
-- V5 case library expansion (when built) — batch-tolerant
-- Daily agent synthesis already uses batch ✓
+### Batch API
+Anthropic's Batch API gives 50% off on async-tolerant workloads (24-hr SLA). Daily agent synthesis already uses batch. Remaining candidates: Pool E/F monthly refresh, Weekend Study Phase 8, V5 case library expansion.
