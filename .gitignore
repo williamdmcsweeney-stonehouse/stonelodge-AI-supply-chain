@@ -11,3 +11,6 @@ streamlit.log
 # live in stonelodge-backend (private). Local files still load in Claude Code
 # for normal use in this directory.
 .claude/
+
+# runtime streamlit error logs
+*.log.err
