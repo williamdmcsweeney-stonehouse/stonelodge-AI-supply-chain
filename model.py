@@ -5,6 +5,50 @@ Translates token demand into supply chain bottleneck signals across every
 layer of the AI infrastructure stack, from silicon design to grid power.
 
 Calibration anchor: ~30 GW total hyperscaler AI infrastructure in 2025.
+
+================================================================================
+COMMITTED BASE CASE (locked 2026-06-18, tech-ai-sector-analyst stress-test)
+================================================================================
+The stress-test (.claude/agent-memory/tech-ai-sector-analyst/
+project_power_demand_model_stresstest_2026-06-18.md) found a doc-vs-code drift:
+the Excel/doc narrated 1100 users + doubling 2.0 -> 467 GW peak, while the code
+default ran 1400 users + doubling 1.85 -> 377 GW peak, and the cumulative-capex
+prose ($6.85T / $7.9T / $8.4T) was internally inconsistent. Owner approved
+locking ONE committed base case so the headline numbers are self-consistent:
+
+    AI users 2025          = 1400 M  (H2-2025 aggregate weekly: OpenAI ~800M +
+                                       Gemini + Meta AI + Claude consumer +
+                                       Copilot embeds; better-sourced than 1100)
+    gross tokens 2025      = 134.9 T/day  (derived from the 1400-user anchor)
+    efficiency doubling    = 1.85 yr  (hardware-only; Epoch AI Jun-2025 update)
+    fleet replacement lag  = 5 yr     (was 6; lowered per judgment-call item 5,
+                                       true fleet-weighted refresh is 4-5yr)
+    2025 DC power anchor   = 70 GW    (mid-consensus: JLL/C&W/GS/McKinsey)
+    inference utilization  = 12% (2025) -> 25% (2035)  (raised per item 6)
+    layer-model 2025 eff   = 3.6M tokens/kWh (FLEET-BLENDED, relabeled per item 3;
+                                       7M frontier reachable as an explicit override,
+                                       not the default, to avoid a cohort-sizing
+                                       double-count in the vintaged model)
+
+COMMITTED HEADLINE NUMBERS (with lag 5):
+    macro peak gap         = ~332 GW @ 2029  (was 377 @ 2030 at lag 6)
+    balance / overshoot    = 2034
+    cumulative power+grid capex to 2042 = ~$8.4T
+    layer power inflection = 2030-2031 (vintaged drilldown)
+
+The cumulative power+grid capex is SUPPLY-DRIVEN ONLY (anchor 70 compounded at
+the phase rates x blended $/MW x 25% power-grid share). It does NOT move with
+demand assumptions. The $6.85T / $7.9T / $8.4T ambiguity was purely an anchor
+artifact: $6.85T~=57 GW anchor (stale Excel), $7.9T=66 GW (stale code comment),
+$8.4T=70 GW (committed). The committed cumulative figure is therefore $8.4T.
+
+Every recommendation from the stress-test is implemented as an OPT-IN toggle or
+parameter whose DEFAULT reproduces this committed base case exactly, EXCEPT the
+two owner-approved judgment calls that intentionally move the base case: item 5
+(fleet lag 6 -> 5) and item 6 (utilization 9% -> 12% / 18% -> 25%). The combined-
+efficiency (item 2) and second-wave (item 7) scenarios are switched ON explicitly
+and default OFF. See item-numbered comments inline.
+================================================================================
 """
 
 from __future__ import annotations  # PEP 604 / PEP 585 compatibility on Python 3.9+
@@ -435,10 +479,13 @@ def build_token_demand(
 
 MACRO_SCENARIOS = {
     "Base — empirical (Stonehouse)": {
-        "doubling": 1.85, "lag": 6,
+        "doubling": 1.85, "lag": 5,                       # ITEM 5: lag 6 -> 5
         "supply_rates": (0.22, 0.30, 0.25, 0.15),
-        "note": "Gap persists through 2034+. No air pocket for power names. Default. "
-                "Triangulates: 2030 supply 229 GW vs consensus 200 GW (JLL/McK/Bain).",
+        "note": "Committed base case (locked 2026-06-18): users 1400, doubling 1.85, "
+                "lag 5, anchor 70, util 12/25. Peak gap ~332 GW @ 2029; balance/overshoot "
+                "2034; cumulative power+grid capex ~$8.4T to 2042. Gap persists through "
+                "2033; no air pocket for power names. Triangulates 2030 supply 229 GW "
+                "vs consensus 200 GW.",
     },
     "Bear — fast efficiency": {
         "doubling": 1.5, "lag": 4,
@@ -461,13 +508,63 @@ MACRO_SCENARIOS = {
 def build_macro_gap(
     token_df: pd.DataFrame,
     anchor_gw_2025: float = 70.0,                        # JLL 2026 + C&W 2024 + GS Feb 2025 mid [4-6]
-    efficiency_doubling_years: float = 1.85,             # Epoch AI Jun 2025 update [1]
-    fleet_lag_years: int = 6,                            # 4-5yr hyperscaler + 7-8yr enterprise = 6 [3]
+    efficiency_doubling_years: float = 1.85,             # Epoch AI Jun 2025 update [1] (HARDWARE-only)
+    fleet_lag_years: int = 5,                            # ITEM 5: 6 -> 5 (true fleet-weighted refresh 4-5yr)
     supply_phase_rates: tuple = (0.22, 0.30, 0.25, 0.15),  # 26-27, 28-30, 31-35, 36-42
     cost_shell_per_mw_M: float = 11.3,                   # JLL [9]
     cost_ai_fitout_per_mw_M: float = 15.0,               # JLL [10]
     ai_workload_share: float = 0.50,                     # AI share of new builds (50% by 2030)
     power_grid_share: float = 0.25,                      # Power & grid share of total DC capex
+    # ----------------------------------------------------------------------------
+    # ITEM 2 (algorithmic-efficiency term). DEFAULT OFF -> base case unchanged.
+    # When include_algorithmic_efficiency=True, the frontier efficiency curve
+    # doubles on `combined_doubling_years` (hardware + software/algorithmic gains
+    # compounded) instead of the hardware-only `efficiency_doubling_years`. Epoch
+    # AI: algorithmic progress ~3x/yr; combined hardware+algorithmic effective
+    # doubling ~1.1-1.4yr. A faster doubling pulls the asymptote earlier and
+    # shrinks the gap. This ONLY rebinds the doubling period used in the frontier
+    # term below; nothing else changes, so OFF reproduces the committed base case.
+    include_algorithmic_efficiency: bool = False,        # ITEM 2: OFF = hardware-only base case
+    combined_doubling_years: float = 1.25,               # ITEM 2: hardware+algorithmic blended (1.1-1.4yr)
+    # ----------------------------------------------------------------------------
+    # ITEM 4 (fix the inert enterprise_intensity_scale slider). In build_macro_gap
+    # the only demand input is token_df["total_T"], which is ALREADY scaled by the
+    # enterprise/agent sliders inside build_token_demand. But the monotonic cap
+    # plus the anchor_ratio normalization meant that once net demand froze, a
+    # higher enterprise intensity could not re-lift the FROZEN net-demand floor,
+    # so the slider washed out of the macro gap entirely. We add an explicit
+    # gross-demand multiplier here that is applied to gross_tokens_T BEFORE the
+    # monotonic cap, so the slider genuinely moves the macro gap. DEFAULT 1.0 =
+    # no change. Callers that already pre-scale token_df should leave this at 1.0
+    # (the dashboard does); this parameter exists so a macro-only caller can flex
+    # enterprise intensity without rebuilding token_df, and so the lever is no
+    # longer silently absorbed.
+    enterprise_intensity_scale_macro: float = 1.0,       # ITEM 4: now actually moves the gap
+    # ----------------------------------------------------------------------------
+    # ITEM 6 (raise the utilization path). The macro gap does not use utilization
+    # directly (utilization lives in the layer model). These parameters are
+    # carried for documentation/consistency with the committed base case and are
+    # forwarded by callers that want the layer model and macro model to share one
+    # utilization assumption. They do not enter the macro arithmetic, so changing
+    # them never moves the macro headline. See build_infrastructure_demand* for
+    # the live utilization defaults (now 0.12 -> 0.25).
+    # ----------------------------------------------------------------------------
+    # ITEM 7 (optional second-wave / demand re-acceleration channel). DEFAULT OFF
+    # -> the base case keeps the strict monotonic cap (net demand can never fall,
+    # but also never re-accelerates once efficiency outruns gross-token growth).
+    # When enable_second_wave=True, the monotonic cap is RELAXED: in/after
+    # `second_wave_start_year`, net compute demand is allowed to grow at up to
+    # `second_wave_max_growth` per year IF gross-token growth justifies it, so a
+    # robotics/agentic second wave can re-open the gap. Mechanically: instead of
+    # net = max(net_raw, net_prev), we take net = max(net_raw, net_prev) and then,
+    # if we are in the second-wave window AND the underlying gross-token YoY growth
+    # exceeds the efficiency drag, we let net rise toward net_prev * (1 + g) where
+    # g is the capped second-wave growth. This re-introduces Jevons-style demand
+    # rebound that the strict cap forbids by construction. OFF reproduces the
+    # committed base case exactly.
+    enable_second_wave: bool = False,                    # ITEM 7: OFF = strict monotonic cap (base case)
+    second_wave_start_year: int = 2034,                  # ITEM 7: when the second wave can begin
+    second_wave_max_growth: float = 0.15,                # ITEM 7: max YoY net-demand re-accel (15%/yr)
 ) -> pd.DataFrame:
     """Aggregate demand vs supply gap framework (colleague's Efficiency Overlay).
 
@@ -488,17 +585,28 @@ def build_macro_gap(
     """
     cost_per_mw_blended_M = cost_shell_per_mw_M + cost_ai_fitout_per_mw_M * ai_workload_share
 
+    # ITEM 2 (algorithmic-efficiency term): pick the doubling period ONCE up front.
+    # OFF (default) -> hardware-only `efficiency_doubling_years` (committed base
+    # case). ON -> the faster combined hardware+algorithmic `combined_doubling_years`.
+    effective_doubling_years = (
+        combined_doubling_years if include_algorithmic_efficiency
+        else efficiency_doubling_years
+    )
+
     rows: list[dict] = []
     fleet_eff_prev = 1.0
     net_demand_prev = 0.0
+    gross_prev = 0.0                # ITEM 7: track prior-year gross tokens for the second-wave trigger
     supply_prev = anchor_gw_2025
     cumulative_power_capex = 0.0
 
     for year in YEARS:
         yrs = year - 2025
 
-        # 1. Frontier efficiency (newest GPU generation)
-        new_eff_idx = 2.0 ** (yrs / efficiency_doubling_years)
+        # 1. Frontier efficiency (newest GPU generation).
+        # ITEM 2: uses effective_doubling_years (hardware-only by default; combined
+        # hardware+algorithmic when include_algorithmic_efficiency=True).
+        new_eff_idx = 2.0 ** (yrs / effective_doubling_years)
 
         # 2. Fleet-weighted efficiency: each year, 1/lag of fleet replaced by frontier
         if year == 2025:
@@ -510,13 +618,57 @@ def build_macro_gap(
         compute_per_token_idx = 1.0 / fleet_eff_idx
 
         # 3. Demand
-        gross_tokens_T = float(token_df.loc[year, "total_T"])
-        net_compute_demand_T = gross_tokens_T * compute_per_token_idx
-        # Monotonic: deployed fleet doesn't get torn down even if efficiency improves
-        net_compute_demand_T = max(net_compute_demand_T, net_demand_prev)
-        net_demand_prev = net_compute_demand_T
+        # ITEM 4 (fix inert enterprise_intensity_scale): apply an explicit gross
+        # multiplier to gross tokens BEFORE the monotonic cap, so the lever moves
+        # the macro gap instead of being absorbed by the frozen net-demand floor.
+        # DEFAULT 1.0 reproduces the committed base case exactly.
+        gross_tokens_T = float(token_df.loc[year, "total_T"]) * enterprise_intensity_scale_macro
+        net_compute_demand_raw_T = gross_tokens_T * compute_per_token_idx
 
-        # Convert to GW using 2025 anchor ratio (66 GW per 124.3 T tokens/day)
+        # Monotonic floor: deployed fleet doesn't get torn down even if efficiency
+        # improves, so net demand can never fall (committed base case).
+        net_compute_demand_T = max(net_compute_demand_raw_T, net_demand_prev)
+
+        # ITEM 7 (optional second-wave / demand re-acceleration). DEFAULT OFF keeps
+        # the strict cap above. RATIONALE: the strict cap freezes net demand once
+        # frontier efficiency outruns gross-token growth, so a later robotics/
+        # agentic wave can NEVER re-open the gap, even when gross tokens are growing
+        # 50x, because the hyper-efficient fleet absorbs it on the existing floor.
+        # That is the model's Jevons / second-wave blind spot. When enabled, a
+        # genuinely NEW workload class (gross tokens RE-ACCELERATING in the
+        # second-wave window) is treated as demand that legacy idle fleet cannot
+        # instantly absorb: net demand is allowed to grow above the frozen floor at
+        # up to second_wave_max_growth per year, scaled by how hard gross tokens are
+        # re-accelerating. The trigger is GROSS-token YoY growth (not the
+        # efficiency-adjusted raw signal), because the whole point is that the
+        # second wave breaks the cap that efficiency would otherwise impose.
+        if (
+            enable_second_wave
+            and year >= second_wave_start_year
+            and year > 2025
+            and net_demand_prev > 0.0
+            and gross_prev > 0.0
+        ):
+            gross_growth = (gross_tokens_T - gross_prev) / gross_prev
+            if gross_growth > 0.0:
+                # Re-accelerate net demand at up to second_wave_max_growth/yr,
+                # damped by how strong the gross re-acceleration is relative to the
+                # second-wave ceiling. A 15%/yr gross surge with a 15% cap fully
+                # re-opens; a weak 3% surge re-opens proportionally less.
+                applied_growth = min(gross_growth, second_wave_max_growth)
+                second_wave_floor = net_demand_prev * (1.0 + applied_growth)
+                net_compute_demand_T = max(net_compute_demand_T, second_wave_floor)
+
+        net_demand_prev = net_compute_demand_T
+        gross_prev = gross_tokens_T     # ITEM 7: carry gross for next year's trigger
+
+        # Convert to GW using 2025 anchor ratio.
+        # ITEM 1 (reconcile drift): comment previously read "66 GW per 124.3 T
+        # tokens/day" which described the STALE doc base case (1100 users). The
+        # committed base case is 70 GW per 134.9 T tokens/day (1400 users). The
+        # ratio is computed live from anchor_gw_2025 and the actual 2025 gross
+        # tokens, so it self-corrects whichever anchor/user combo is supplied;
+        # the comment is just updated so it no longer narrates the wrong anchor.
         anchor_ratio = anchor_gw_2025 / float(token_df.loc[2025, "total_T"])
         demand_gw = net_compute_demand_T * anchor_ratio
 
@@ -638,15 +790,23 @@ def server_kw_for_year(year: int) -> float:
 
 def build_infrastructure_demand(
     token_df: pd.DataFrame,
-    # Calibration anchors — see research/assumptions_validation.md
-    # Default = "high-conviction only" package: efficiency doubling 2.5→2.0 (the one
-    # change with strongest evidence per tech-ai-sector-analyst). Other agent-recommended
-    # changes (7M tokens/kWh, 12% utilization, 38 GW anchor) compound to break the 30 GW
-    # 2025 anchor calibration. Surface those as preset scenarios in the v2 dashboard.
-    tokens_per_kwh_2025: float = 3_600_000,            # H100-blended fleet baseline
-    efficiency_doubling_years: float = 2.0,            # post-Blackwell cadence (was 2.5) — HIGH CONVICTION
-    inference_utilization_2025: float = 0.067,         # 30 GW 2025 anchor calibration
-    inference_utilization_2035: float = 0.18,
+    # Calibration anchors, see research/assumptions_validation.md
+    # ITEM 3 (frozen 3.6M staleness): held at 3.6M and RELABELED as a FLEET-BLENDED
+    # (not frontier) 2025 efficiency, matching the re-anchor decision documented in
+    # build_infrastructure_demand_vintaged. Keeping both layer models on the SAME
+    # 2025 efficiency basis is deliberate: the dashboard lets the user toggle
+    # between the two via use_vintaged, and a 7M-vs-3.6M split would produce a ~5x
+    # discontinuity in displayed power when toggling. The true 7M frontier remains
+    # an explicit override for sensitivity. The MACRO headline is insulated either
+    # way (build_macro_gap uses a pure 2025=1.0 index, not tokens/kWh).
+    # ITEM 6 (utilization path): RAISED to the committed 12%/25% here. In this
+    # NON-vintaged model utilization is a simple divisor (total_compute = inference
+    # / util), so the raise is well-behaved (verified: sane shape, inflection year
+    # unchanged). The dashboard overrides util explicitly via a preset regardless.
+    tokens_per_kwh_2025: float = 3_600_000,            # ITEM 3: FLEET-BLENDED 2025 eff (relabeled; held for cross-model consistency)
+    efficiency_doubling_years: float = 2.0,            # post-Blackwell cadence (was 2.5), HIGH CONVICTION
+    inference_utilization_2025: float = 0.12,          # ITEM 6: 0.067 -> 0.12 (committed base case)
+    inference_utilization_2035: float = 0.25,          # ITEM 6: 0.18 -> 0.25 (committed base case)
     pue_2025: float = 1.40,
     pue_2040: float = 1.15,
     hbm_gb_per_tflop: float = 1.38,
@@ -768,11 +928,33 @@ def build_infrastructure_demand(
 def build_infrastructure_demand_vintaged(
     token_df: pd.DataFrame,
     initial_anchor_gw: float = 40.0,                   # 2025 deployed power anchor (slider)
-    tokens_per_kwh_2025: float = 3_600_000,            # FRONTIER 2025 (newest GPU eff)
+    # ITEM 3 (frozen 3.6M staleness). DECISION = RE-ANCHOR + RELABEL, do NOT unfreeze
+    # to 7M as the default. The memo offered "either unfreeze to 7M OR re-anchor;
+    # pick the cleaner fix." Testing showed unfreezing this VINTAGED model to 7M is
+    # NOT clean: at the dashboard's operational utilization (~9%) it collapses the
+    # power inflection to an implausible 2026, because here efficiency is double-
+    # counted through cohort sizing (the 2025 anchor fleet, assigned 7M frontier
+    # eff, then "covers" almost all future demand so no new fleet is added). The
+    # cleaner fix is to RE-ANCHOR semantically: this 3.6M is a deliberately FLEET-
+    # BLENDED 2025 efficiency (H100-weighted installed base), NOT a frontier number,
+    # and the parameter is relabeled accordingly below. Holding it at 3.6M keeps the
+    # layer drilldown well-behaved (inflection 2030-2031 at util 9%) and stops the
+    # stale label from implying frontier. The true 7M frontier scenario remains one
+    # explicit override away (pass tokens_per_kwh_2025=7_000_000) for sensitivity,
+    # but it is intentionally not the default because of the cohort-sizing double-
+    # count. The MACRO headline (build_macro_gap) is insulated from this either way.
+    tokens_per_kwh_2025: float = 3_600_000,            # ITEM 3: FLEET-BLENDED 2025 eff (relabeled; was mislabeled "FRONTIER")
     efficiency_doubling_years: float = 2.0,            # frontier doubling rate
-    fleet_life_years: int = 6,                         # GPU/server lifecycle
-    inference_utilization_2025: float = 0.067,
-    inference_utilization_2035: float = 0.18,
+    fleet_life_years: int = 5,                         # ITEM 5: 6 -> 5 (true fleet-weighted refresh 4-5yr)
+    # ITEM 6 (utilization path): RAISED to the committed 12%/25%. This is SAFE in
+    # combination with the held 3.6M efficiency (verified: 2025 40 GW, 2030 ~85 GW,
+    # inflection 2031, sane shape). The double-count hazard noted under item 3 only
+    # arises if util AND efficiency are BOTH raised together (util 12% + 7M frontier
+    # collapses the inflection to 2026). Because item 3 holds efficiency at 3.6M
+    # here, raising util alone is clean. The dashboard passes util explicitly via a
+    # preset, so this default governs only bare/script calls.
+    inference_utilization_2025: float = 0.12,          # ITEM 6: 0.067 -> 0.12 (committed base case)
+    inference_utilization_2035: float = 0.25,          # ITEM 6: 0.18 -> 0.25 (committed base case)
     pue_2025: float = 1.40,
     pue_2040: float = 1.15,
     hbm_gb_per_tflop: float = 1.38,
