@@ -48,6 +48,17 @@ two owner-approved judgment calls that intentionally move the base case: item 5
 (fleet lag 6 -> 5) and item 6 (utilization 9% -> 12% / 18% -> 25%). The combined-
 efficiency (item 2) and second-wave (item 7) scenarios are switched ON explicitly
 and default OFF. See item-numbered comments inline.
+
+Two further analyst-requested levers were added 2026-06-23, both DEFAULT-OFF and
+both reproducing this committed base case exactly when left at their defaults:
+  ITEM 8  use_flops_demand          — rebase demand on first-principles FLOPs
+          (tokens x 2N, the Kaplan/Chinchilla rule) with an explicit model-mix
+          routing lever; this SEPARATES the blended tokens/kWh number into its two
+          real drivers, hardware efficiency (fleet TFLOP/W) and model-size/routing
+          efficiency (mix-weighted active params).
+  ITEM 9  capacity_retirement_rate  — turn the binary monotonic-floor (plateau)
+          vs raw-physics (cliff) behaviour into a continuous retirement dial.
+See research/model_corrections_2026-06-23.md for the full walkthrough.
 ================================================================================
 """
 
@@ -505,6 +516,32 @@ MACRO_SCENARIOS = {
 }
 
 
+def _avg_n_active_b(
+    year: int,
+    n_active_b: tuple,
+    mix_2025: tuple,
+    mix_2040: tuple,
+) -> float:
+    """ITEM 8 helper: mix-weighted active-parameter count (BILLIONS) for `year`.
+
+    The routing mix (share of tokens served by each model tier) interpolates
+    linearly from `mix_2025` to `mix_2040`, held flat outside that window. The
+    `n_active_b` tuple is the per-tier active parameter count in billions, ordered
+    the same as the mix tuples (e.g. frontier, mid, small). Returns the blended N
+    fed to the 2N FLOPs-per-token rule. Pure function, no module state.
+
+    Example (defaults): 2025 mix (0.55, 0.30, 0.15) x N (500, 70, 8) -> 297B avg;
+    2040 mix (0.15, 0.35, 0.50) -> 103.5B avg. That ~2.9x model-size shrink is the
+    routing/orchestration contribution to efficiency, kept SEPARATE from the
+    hardware TFLOP/W contribution.
+    """
+    t = min(1.0, max(0.0, (year - 2025) / (2040 - 2025)))
+    mix = [m0 + t * (m1 - m0) for m0, m1 in zip(mix_2025, mix_2040)]
+    s = sum(mix) or 1.0
+    mix = [m / s for m in mix]  # defensive renormalize so shares always sum to 1
+    return sum(m * n for m, n in zip(mix, n_active_b))
+
+
 def build_macro_gap(
     token_df: pd.DataFrame,
     anchor_gw_2025: float = 70.0,                        # JLL 2026 + C&W 2024 + GS Feb 2025 mid [4-6]
@@ -565,6 +602,33 @@ def build_macro_gap(
     enable_second_wave: bool = False,                    # ITEM 7: OFF = strict monotonic cap (base case)
     second_wave_start_year: int = 2034,                  # ITEM 7: when the second wave can begin
     second_wave_max_growth: float = 0.15,                # ITEM 7: max YoY net-demand re-accel (15%/yr)
+    # ----------------------------------------------------------------------------
+    # ITEM 8 (FLOPs-native demand basis + model-mix routing lever). DEFAULT OFF ->
+    # committed base unchanged (token-count demand, blended efficiency index). See
+    # the in-loop ITEM 8 block for the mechanics. In short: use_flops_demand swaps
+    # the demand NUMERATOR from raw token count to first-principles FLOPs/day
+    # (tokens x 2 x N_active), and swaps the efficiency DENOMINATOR from the blended
+    # tokens/kWh index to the physical fleet TFLOP/W ramp (tflop_per_w_for_year).
+    # This is the answer to "tokens aren't energy-fungible": a token's compute cost
+    # is 2N FLOPs and N varies ~50x across model tiers. flops_n_active_b is the
+    # active parameter count (BILLIONS) per tier; flops_mix_2025/2040 are the token
+    # shares per tier (same length/order as flops_n_active_b), interpolated 2025->
+    # 2040 to model routing toward smaller models; flops_mfu is model-FLOPs-
+    # utilization (it cancels in the 2025 re-anchor, kept only for transparency).
+    use_flops_demand: bool = False,                      # ITEM 8: OFF = token-count basis (base case)
+    flops_n_active_b: tuple = (500.0, 70.0, 8.0),        # ITEM 8: active params (B): frontier / mid / small
+    flops_mix_2025: tuple = (0.55, 0.30, 0.15),          # ITEM 8: 2025 token mix (frontier-heavy)
+    flops_mix_2040: tuple = (0.15, 0.35, 0.50),          # ITEM 8: 2040 token mix (routing -> small models)
+    flops_mfu: float = 0.35,                             # ITEM 8: model-FLOPs-utilization (cancels in anchor)
+    # ----------------------------------------------------------------------------
+    # ITEM 9 (tunable capacity retirement). DEFAULT 0.0 -> the STRICT monotonic
+    # floor of the committed base (deployed fleet never torn down, net demand can
+    # never fall). >0 decays the frozen demand floor at this rate per year, so old/
+    # inefficient capacity retires and net demand can slide toward the raw physics
+    # line at a controlled pace. 1.0 -> floor fully released (pure raw physics, the
+    # demand "cliff"). This replaces the old binary plateau-vs-cliff switch with a
+    # continuous dial — the single biggest swing factor in the 2030s out-years.
+    capacity_retirement_rate: float = 0.0,               # ITEM 9: 0.0 = committed base (no retirement)
 ) -> pd.DataFrame:
     """Aggregate demand vs supply gap framework (colleague's Efficiency Overlay).
 
@@ -582,6 +646,8 @@ def build_macro_gap(
       annual_total_capex_b        — $B total DC capex from incremental supply
       annual_power_grid_capex_b   — power & grid share (25%)
       cumulative_power_grid_capex_b — running total
+      avg_n_active_b              — ITEM 8: mix-weighted active params (B); 0 in token mode
+      flops_per_day               — ITEM 8: FLOPs/day demand; 0 in token mode
     """
     cost_per_mw_blended_M = cost_shell_per_mw_M + cost_ai_fitout_per_mw_M * ai_workload_share
 
@@ -599,6 +665,17 @@ def build_macro_gap(
     gross_prev = 0.0                # ITEM 7: track prior-year gross tokens for the second-wave trigger
     supply_prev = anchor_gw_2025
     cumulative_power_capex = 0.0
+
+    # ITEM 8: precompute the 2025 normalizer for whichever demand basis is active,
+    # so the re-anchor (anchor_gw_2025 maps to TODAY's demand) holds in BOTH modes.
+    # Token mode uses raw 2025 gross tokens — byte-for-byte the prior behaviour.
+    # FLOPs mode uses the 2025 FLOPs-power proxy (MFU/86400 constants cancel here).
+    if use_flops_demand:
+        _n0 = _avg_n_active_b(2025, flops_n_active_b, flops_mix_2025, flops_mix_2040)
+        _flops0 = float(token_df.loc[2025, "total_T"]) * 1e12 * 2.0 * _n0 * 1e9
+        basis_2025 = _flops0 / 86_400.0 / (tflop_per_w_for_year(2025) * 1e12 * flops_mfu)
+    else:
+        basis_2025 = float(token_df.loc[2025, "total_T"])
 
     for year in YEARS:
         yrs = year - 2025
@@ -623,11 +700,39 @@ def build_macro_gap(
         # the macro gap instead of being absorbed by the frozen net-demand floor.
         # DEFAULT 1.0 reproduces the committed base case exactly.
         gross_tokens_T = float(token_df.loc[year, "total_T"]) * enterprise_intensity_scale_macro
-        net_compute_demand_raw_T = gross_tokens_T * compute_per_token_idx
 
-        # Monotonic floor: deployed fleet doesn't get torn down even if efficiency
-        # improves, so net demand can never fall (committed base case).
-        net_compute_demand_T = max(net_compute_demand_raw_T, net_demand_prev)
+        # ITEM 8 (FLOPs-native demand basis + model-mix routing lever). DEFAULT OFF
+        # -> the committed base keeps the token-count basis: net demand = gross
+        # tokens / fleet-efficiency index, exactly as before. When use_flops_demand
+        # is True, the basis is rebuilt from first principles:
+        #     FLOPs/day       = tokens/day x (2 x N_active)     (Kaplan/Chinchilla 2N)
+        #     power proxy (W)  = FLOPs/day / 86400 / (fleet_TFLOP/W x MFU)
+        # N_active is the MIX-weighted active-parameter count, where the routing mix
+        # shifts frontier-heavy (2025) -> small-heavy (2040). This SPLITS the single
+        # blended tokens/kWh efficiency into its two real drivers: hardware (fleet
+        # TFLOP/W, via tflop_per_w_for_year) and model size / routing (avg N). MFU
+        # and the 86400 constant cancel in the 2025 re-anchor, so they don't move the
+        # curve; they are kept for physical transparency. OFF reproduces base.
+        if use_flops_demand:
+            avg_n_active_b = _avg_n_active_b(
+                year, flops_n_active_b, flops_mix_2025, flops_mix_2040)
+            flops_per_day = gross_tokens_T * 1e12 * 2.0 * avg_n_active_b * 1e9
+            net_compute_demand_raw_T = flops_per_day / 86_400.0 / (
+                tflop_per_w_for_year(year) * 1e12 * flops_mfu)
+        else:
+            avg_n_active_b = 0.0
+            flops_per_day = 0.0
+            net_compute_demand_raw_T = gross_tokens_T * compute_per_token_idx
+
+        # Floor on net demand. ITEM 9 (tunable capacity retirement). DEFAULT
+        # capacity_retirement_rate=0.0 -> the STRICT monotonic floor of the committed
+        # base: deployed fleet isn't torn down even as efficiency improves, so net
+        # demand can never fall. When >0, the frozen floor DECAYS at this rate/yr, so
+        # old/inefficient capacity retires and net demand can slide toward the raw
+        # physics line at a controlled pace (1.0 = floor fully released = the demand
+        # "cliff"; 0<r<1 = the realistic middle). Continuous dial, not a binary.
+        decayed_floor = net_demand_prev * (1.0 - capacity_retirement_rate)
+        net_compute_demand_T = max(net_compute_demand_raw_T, decayed_floor)
 
         # ITEM 7 (optional second-wave / demand re-acceleration). DEFAULT OFF keeps
         # the strict cap above. RATIONALE: the strict cap freezes net demand once
@@ -669,7 +774,11 @@ def build_macro_gap(
         # ratio is computed live from anchor_gw_2025 and the actual 2025 gross
         # tokens, so it self-corrects whichever anchor/user combo is supplied;
         # the comment is just updated so it no longer narrates the wrong anchor.
-        anchor_ratio = anchor_gw_2025 / float(token_df.loc[2025, "total_T"])
+        # ITEM 8: the ratio is generalized to the active demand basis (basis_2025,
+        # precomputed above). Token mode -> 2025 gross tokens, identical to before;
+        # FLOPs mode -> 2025 power proxy. Either way 2025 demand re-anchors to
+        # anchor_gw_2025, so the two bases are directly comparable from a 70 GW start.
+        anchor_ratio = anchor_gw_2025 / basis_2025
         demand_gw = net_compute_demand_T * anchor_ratio
 
         # 4. Supply (phase-rate compounding)
@@ -705,6 +814,8 @@ def build_macro_gap(
             "fleet_eff_idx": fleet_eff_idx,
             "compute_per_token_idx": compute_per_token_idx,
             "net_compute_demand_T": net_compute_demand_T,
+            "avg_n_active_b": avg_n_active_b,    # ITEM 8 diagnostic (0 in token mode)
+            "flops_per_day": flops_per_day,      # ITEM 8 diagnostic (0 in token mode)
             "demand_gw": demand_gw,
             "supply_gw": supply_gw,
             "incremental_supply_gw": incremental_supply_gw,
