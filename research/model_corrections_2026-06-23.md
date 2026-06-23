@@ -169,12 +169,21 @@ Added 2026-06-23 so these are not abstract Python-only knobs:
    Excel sets the starting point) and then let you flex live without touching Excel.
 
 4. **Excel — `Token_and_Data_Build_Out_v4_2.xlsx`, tab "FLOPs to Power".** The
-   tokens -> FLOPs -> power conversion as a STATIC snapshot, written into the
-   build-out workbook itself (so it sits next to "Efficiency Overlay"). Inserted
-   safely via the same surgical zip edit; regenerate with
-   `python research/refresh_flops_sheet_in_buildout.py` (idempotent: inserts first
-   run, overwrites after; reflects the current Macro Levers tab; asserts the golden
-   hash). The dashboard's "Demand in FLOPs" panel is the LIVE version of this sheet.
+   tokens -> FLOPs -> power conversion as **live Excel formulas** (not a static
+   snapshot), sitting next to "Efficiency Overlay". Tokens/day are linked live to
+   `'Efficiency Overlay'!` (Total + Retail x retail-uplift to the 1400-user basis).
+   Editable inputs: anchor_GW, capacity_retirement_rate, per-year training share,
+   avg active params N, and fleet TFLOP/W. Formula columns:
+   `FLOPs_per_token = (2*(1-train) + 6*train) * N` (2N inference, 6N training),
+   `FLOPs_per_day = tokens x FLOPs_per_token`, `power_raw_GW` (pure pull, re-anchored
+   by FLOPs/day / TFLOP/W), and `power_GW_floored` (= MAX recurrence = ITEM 9 floor,
+   reproduces the model 70 -> 708). MFU and the 86400 constant cancel in the
+   re-anchor, so they do not appear. A CONSTANT training split also cancels; only a
+   year-VARYING split bends the curve. Written via surgical zip edit (formulas carry
+   cached values that equal the formulas, plus fullCalcOnLoad so Excel recomputes on
+   open); regenerate with `python research/refresh_flops_sheet_in_buildout.py`
+   (idempotent; asserts the golden hash). The dashboard "Demand in FLOPs" panel is
+   the same conversion, live against the sidebar sliders.
 
 Flow: edit Excel tab -> defaults change in dashboard + `load_macro_levers()` callers.
 Move a slider -> live override for that session. Code defaults in `model.py` are the
