@@ -861,6 +861,54 @@ def gap_summary(macro_df: pd.DataFrame) -> dict:
     }
 
 
+def load_macro_levers(path=None) -> dict:
+    """Read the 'Macro Levers' tab (ITEM 8 / ITEM 9 controls) from the input
+    workbook and return a dict of build_macro_gap kwargs.
+
+    This is the bridge that lets the levers LIVE in Token_and_Data_Build_Out_*.xlsx:
+    edit column B on the 'Macro Levers' tab and the dashboard / export pick it up.
+    It is fully ROBUST and OPTIONAL: a missing workbook, missing sheet, missing key,
+    or blank/non-numeric cell each falls back to build_macro_gap's committed-base
+    default, so the sheet can never break a run. With the shipped defaults,
+    build_macro_gap(tok, **load_macro_levers()) reproduces the committed base exactly.
+    """
+    import inspect
+    defaults = {k: v.default for k, v in inspect.signature(build_macro_gap).parameters.items()}
+
+    raw: dict = {}
+    try:
+        import openpyxl  # lazy import, see top-of-file note
+        wb = openpyxl.load_workbook(str(path or EXCEL_PATH), data_only=True)
+        if "Macro Levers" not in wb.sheetnames:
+            return {}
+        for r in wb["Macro Levers"].iter_rows(values_only=True):
+            if r and isinstance(r[0], str):
+                raw[r[0].strip()] = r[1]
+    except Exception:
+        return {}
+
+    def num(key, fallback):
+        try:
+            return float(raw[key])
+        except (KeyError, TypeError, ValueError):
+            return fallback
+
+    nd, m25, m40 = (defaults["flops_n_active_b"], defaults["flops_mix_2025"],
+                    defaults["flops_mix_2040"])
+    out = {
+        "use_flops_demand": bool(num("use_flops_demand", 1.0 if defaults["use_flops_demand"] else 0.0)),
+        "flops_n_active_b": (num("flops_n_frontier_b", nd[0]), num("flops_n_mid_b", nd[1]),
+                             num("flops_n_small_b", nd[2])),
+        "flops_mix_2025": (num("flops_mix2025_frontier", m25[0]), num("flops_mix2025_mid", m25[1]),
+                           num("flops_mix2025_small", m25[2])),
+        "flops_mix_2040": (num("flops_mix2040_frontier", m40[0]), num("flops_mix2040_mid", m40[1]),
+                           num("flops_mix2040_small", m40[2])),
+        "flops_mfu": num("flops_mfu", defaults["flops_mfu"]),
+        "capacity_retirement_rate": num("capacity_retirement_rate", defaults["capacity_retirement_rate"]),
+    }
+    return out
+
+
 def tflop_per_w_for_year(year: int) -> float:
     """
     Share-weighted fleet TFLOP/W ramping by GPU generation.

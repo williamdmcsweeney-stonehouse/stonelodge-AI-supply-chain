@@ -49,6 +49,7 @@ try:
         build_token_demand,
         gap_summary,
         load_excel_scenario,
+        load_macro_levers,
         market_cap_b,
         power_inflection_year,
         theme_exposure_pct,
@@ -445,6 +446,44 @@ with st.sidebar.expander("Advanced — supply phase rates"):
     sr4 = st.slider("2036-42 supply growth %", 2, 30, int(macro_cfg["supply_rates"][3] * 100), 1) / 100
     supply_rates = (sr1, sr2, sr3, sr4)
 
+# ITEM 8 / ITEM 9 levers. Defaults are READ LIVE from the 'Macro Levers' tab of
+# Token_and_Data_Build_Out_v4_2.xlsx (edit column B there and it flows through here
+# on the next interaction). The sliders then let you flex them without touching Excel.
+_lev = load_macro_levers()
+with st.sidebar.expander("Advanced — FLOPs demand & retirement (ITEM 8 / ITEM 9)"):
+    st.caption("Defaults live in the 'Macro Levers' tab of the Token build-out Excel.")
+    use_flops_demand = st.checkbox(
+        "Use FLOPs-native demand (ITEM 8)", value=bool(_lev["use_flops_demand"]),
+        help="ON = rebase demand on first-principles FLOPs (tokens x 2N) with a model-mix "
+             "routing lever, separating hardware efficiency (fleet TFLOP/W) from model-size "
+             "efficiency (avg active params). OFF = committed token-count basis.",
+    )
+    capacity_retirement_rate = st.slider(
+        "Capacity retirement rate / yr (ITEM 9)", 0.0, 1.0,
+        float(_lev["capacity_retirement_rate"]), 0.05,
+        help="0 = strict monotonic floor (committed plateau). 1 = floor fully released "
+             "(raw-physics demand cliff). Between = old capacity retires at this rate/yr.",
+    )
+    flops_mfu = st.slider(
+        "Model FLOPs utilization (MFU)", 0.10, 0.60, float(_lev["flops_mfu"]), 0.05,
+        help="Fraction of peak FLOP/s actually achieved. Cancels in the 2025 re-anchor, "
+             "so it does not move the curve; shown for completeness.",
+    )
+    st.caption("Active params per tier (billions) — FLOPs/token = 2 x N")
+    nf = st.number_input("N frontier (B)", 1.0, 5000.0, float(_lev["flops_n_active_b"][0]), 10.0, key="nf")
+    nm = st.number_input("N mid (B)", 1.0, 2000.0, float(_lev["flops_n_active_b"][1]), 5.0, key="nm")
+    ns = st.number_input("N small (B)", 0.1, 500.0, float(_lev["flops_n_active_b"][2]), 1.0, key="ns")
+    flops_n_active_b = (nf, nm, ns)
+    st.caption("Token mix by tier (shares; renormalized internally)")
+    mf25 = st.number_input("2025 frontier share", 0.0, 1.0, float(_lev["flops_mix_2025"][0]), 0.05, key="mf25")
+    mm25 = st.number_input("2025 mid share", 0.0, 1.0, float(_lev["flops_mix_2025"][1]), 0.05, key="mm25")
+    ms25 = st.number_input("2025 small share", 0.0, 1.0, float(_lev["flops_mix_2025"][2]), 0.05, key="ms25")
+    mf40 = st.number_input("2040 frontier share", 0.0, 1.0, float(_lev["flops_mix_2040"][0]), 0.05, key="mf40")
+    mm40 = st.number_input("2040 mid share", 0.0, 1.0, float(_lev["flops_mix_2040"][1]), 0.05, key="mm40")
+    ms40 = st.number_input("2040 small share", 0.0, 1.0, float(_lev["flops_mix_2040"][2]), 0.05, key="ms40")
+    flops_mix_2025 = (mf25, mm25, ms25)
+    flops_mix_2040 = (mf40, mm40, ms40)
+
 with st.sidebar.expander("Advanced — token demand"):
     ai_users = st.slider(
         "AI Users 2025 (M)", 500, 2500, preset["ai_users"], 50,
@@ -496,6 +535,8 @@ def run_model(
     doubling, util_2025, supply_tuple,
     use_vintaged, anchor_gw, fleet_life,
     supply_rates,
+    use_flops_demand, flops_n_active_b, flops_mix_2025, flops_mix_2040,
+    flops_mfu, capacity_retirement_rate,
 ):
     tok = build_token_demand(
         scenario=scenario, ai_users_2025_M=ai_users,
@@ -503,13 +544,22 @@ def run_model(
         humanoid_units_scale=humanoid,
         enterprise_intensity_scale=enterprise,
     )
-    # Macro gap (colleague's framework — aggregate GW level)
+    # Macro gap (colleague's framework — aggregate GW level).
+    # ITEM 8 (FLOPs demand) + ITEM 9 (retirement) flow in from the Macro Levers tab
+    # / sidebar. All default to the committed base, so the headline is unchanged
+    # until the user flips a lever.
     macro = build_macro_gap(
         tok,
         anchor_gw_2025=anchor_gw,
         efficiency_doubling_years=doubling,
         fleet_lag_years=fleet_life,
         supply_phase_rates=supply_rates,
+        use_flops_demand=use_flops_demand,
+        flops_n_active_b=flops_n_active_b,
+        flops_mix_2025=flops_mix_2025,
+        flops_mix_2040=flops_mix_2040,
+        flops_mfu=flops_mfu,
+        capacity_retirement_rate=capacity_retirement_rate,
     )
     # Layer-level model (granular drilldown)
     if use_vintaged:
@@ -534,6 +584,8 @@ tok_df, macro_df, inf_df, tight_df = run_model(
     preset["scenario"], ai_users, agent_mult, humanoid, enterprise,
     doubling, util_2025, tuple(custom_supply.items()),
     use_vintaged, anchor_gw, fleet_life, supply_rates,
+    use_flops_demand, flops_n_active_b, flops_mix_2025, flops_mix_2040,
+    flops_mfu, capacity_retirement_rate,
 )
 inflection = power_inflection_year(inf_df)
 gap_stats = gap_summary(macro_df)

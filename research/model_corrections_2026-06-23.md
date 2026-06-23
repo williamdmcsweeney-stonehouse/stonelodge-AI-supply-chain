@@ -151,6 +151,27 @@ model.build_macro_gap(tok, use_flops_demand=True,
 
 ---
 
+## Where the levers live (control surfaces)
+Added 2026-06-23 so these are not abstract Python-only knobs:
+
+1. **Excel — `Token_and_Data_Build_Out_v4_2.xlsx`, tab "Macro Levers".** Edit
+   column B. This is the home of the ITEM 8 / ITEM 9 defaults. The tab was inserted
+   by surgical zip-level edit that left every existing sheet's formula cache
+   byte-for-byte intact (verified: the model still reads identical demand, golden
+   hash `fdd0de9ef53c8247`). The model NEVER rewrites this workbook, so the 2,400+
+   live formulas are safe.
+2. **`model.load_macro_levers()`** reads that tab and returns `build_macro_gap`
+   kwargs. Fully robust: missing sheet / key / blank cell each falls back to the
+   committed-base default, so the workbook can never break a run. With the shipped
+   defaults, `build_macro_gap(tok, **load_macro_levers())` reproduces the base case.
+3. **Dashboard (`dashboard_v2/app.py`)** — sidebar expander "Advanced — FLOPs demand
+   & retirement (ITEM 8 / ITEM 9)". The sliders are SEEDED from the Excel tab (so the
+   Excel sets the starting point) and then let you flex live without touching Excel.
+
+Flow: edit Excel tab -> defaults change in dashboard + `load_macro_levers()` callers.
+Move a slider -> live override for that session. Code defaults in `model.py` are the
+final fallback. All three agree on the committed base out of the box.
+
 ## Calibration caveats (read before quoting any FLOPs number)
 - The default `flops_n_active_b` and mix tuples are **illustrative**, not calibrated.
   Pin them to disclosed model sizes and observed routing before citing the FLOPs
