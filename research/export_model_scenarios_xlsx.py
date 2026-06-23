@@ -84,6 +84,19 @@ def main():
         for name, df in scen.items():
             df[COLS].round(4).to_excel(xw, sheet_name=name[:31])
 
+        # Explicit tokens -> FLOPs -> power chain (FLOPs basis), the 'pure power pull'.
+        f = scen["FLOPs Basis (ITEM 8)"]
+        chain = pd.DataFrame({
+            "tokens_per_day_T": f["gross_tokens_T"].round(1),
+            "avg_N_active_B": f["avg_n_active_b"].round(0),
+            "FLOPs_per_token": (2.0 * f["avg_n_active_b"] * 1e9),
+            "FLOPs_per_day": f["flops_per_day"],
+            "fleet_TFLOP_per_W": [model.tflop_per_w_for_year(y) for y in f.index],
+            "power_GW": f["demand_gw"].round(0),
+        })
+        chain.index.name = "year"
+        chain.to_excel(xw, sheet_name="Tokens to FLOPs to Power")
+
     print("Wrote", OUT)
 
 

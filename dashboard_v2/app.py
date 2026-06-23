@@ -53,6 +53,7 @@ try:
         market_cap_b,
         power_inflection_year,
         theme_exposure_pct,
+        tflop_per_w_for_year,
     )
 except Exception as _model_import_err:
     import traceback as _tb
@@ -811,6 +812,66 @@ gap_fig.update_layout(
     hovermode="x unified",
 )
 st.plotly_chart(gap_fig, width='stretch')
+
+# ── Demand in FLOPs: tokens -> FLOPs -> power (ITEM 8 lens on the Efficiency Overlay)
+# Always computed in FLOPs terms from the current sidebar params, so you can read the
+# pure compute pull on power regardless of which basis drives the chart above.
+with st.expander("Demand in FLOPs · tokens → FLOPs → power (the pure power pull)",
+                 expanded=bool(use_flops_demand)):
+    st.caption(
+        "Power tracks compute, not token count: a token is **2·N FLOPs** and N varies "
+        "~50x by model, so FLOPs/day is the purer pull on power. "
+        "**FLOPs/day = tokens/day × 2·N(mix)**, then "
+        "**power = FLOPs/day ÷ 86,400 ÷ (fleet TFLOP/W × MFU)**, re-anchored so 2025 = "
+        f"{anchor_gw:.0f} GW. Two forces fight token growth here: avg N falls (routing to "
+        "smaller models) and fleet TFLOP/W rises (better chips). Caveat: decode is "
+        "memory-bandwidth-bound and MFU/PUE still sit between FLOPs and facility power, "
+        "so this is the right demand UNIT, not a perfect power identity."
+    )
+    flops_macro = build_macro_gap(
+        tok_df, anchor_gw_2025=anchor_gw, efficiency_doubling_years=doubling,
+        fleet_lag_years=fleet_life, supply_phase_rates=supply_rates,
+        use_flops_demand=True, flops_n_active_b=flops_n_active_b,
+        flops_mix_2025=flops_mix_2025, flops_mix_2040=flops_mix_2040,
+        flops_mfu=flops_mfu, capacity_retirement_rate=capacity_retirement_rate,
+    )
+    conv = pd.DataFrame({
+        "Year": YEARS,
+        "Tokens/day (T)": [flops_macro.loc[y, "gross_tokens_T"] for y in YEARS],
+        "Avg N (B)": [flops_macro.loc[y, "avg_n_active_b"] for y in YEARS],
+        "FLOPs/token": [2 * flops_macro.loc[y, "avg_n_active_b"] * 1e9 for y in YEARS],
+        "FLOPs/day": [flops_macro.loc[y, "flops_per_day"] for y in YEARS],
+        "Fleet TFLOP/W": [tflop_per_w_for_year(y) for y in YEARS],
+        "Power (GW)": [flops_macro.loc[y, "demand_gw"] for y in YEARS],
+    })
+    st.dataframe(
+        conv.style.format({
+            "Tokens/day (T)": "{:,.0f}", "Avg N (B)": "{:,.0f}",
+            "FLOPs/token": "{:.2e}", "FLOPs/day": "{:.2e}",
+            "Fleet TFLOP/W": "{:.1f}", "Power (GW)": "{:,.0f}",
+        }),
+        hide_index=True, width='stretch', height=420,
+    )
+    fl_fig = go.Figure()
+    fl_fig.add_trace(go.Scatter(
+        x=YEARS, y=conv["FLOPs/day"], name="FLOPs/day (log)",
+        line=dict(color="#9b59b6", width=2.5),
+        hovertemplate="<b>%{x}</b><br>%{y:.2e} FLOPs/day<extra></extra>",
+    ))
+    fl_fig.add_trace(go.Scatter(
+        x=YEARS, y=conv["Power (GW)"], name="Power (GW)", yaxis="y2",
+        line=dict(color="#3498db", width=3),
+        hovertemplate="<b>%{x}</b><br>%{y:.0f} GW<extra></extra>",
+    ))
+    fl_fig.update_layout(
+        height=300,
+        yaxis=dict(title="FLOPs/day", type="log"),
+        yaxis2=dict(title="Power (GW)", overlaying="y", side="right"),
+        paper_bgcolor="#0e1117", plot_bgcolor="#0e1117", font_color="white",
+        legend=dict(orientation="h", y=-0.25), margin=dict(t=10, b=60, l=70, r=60),
+        hovermode="x unified",
+    )
+    st.plotly_chart(fl_fig, width='stretch')
 
 # Capex flow expander
 with st.expander("Capex flow — what gets built ($B/yr to power & grid infrastructure)", expanded=False):
