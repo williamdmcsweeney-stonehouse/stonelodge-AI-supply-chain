@@ -168,6 +168,14 @@ Added 2026-06-23 so these are not abstract Python-only knobs:
    & retirement (ITEM 8 / ITEM 9)". The sliders are SEEDED from the Excel tab (so the
    Excel sets the starting point) and then let you flex live without touching Excel.
 
+4. **Excel — `Token_and_Data_Build_Out_v4_2.xlsx`, tab "FLOPs to Power".** The
+   tokens -> FLOPs -> power conversion as a STATIC snapshot, written into the
+   build-out workbook itself (so it sits next to "Efficiency Overlay"). Inserted
+   safely via the same surgical zip edit; regenerate with
+   `python research/refresh_flops_sheet_in_buildout.py` (idempotent: inserts first
+   run, overwrites after; reflects the current Macro Levers tab; asserts the golden
+   hash). The dashboard's "Demand in FLOPs" panel is the LIVE version of this sheet.
+
 Flow: edit Excel tab -> defaults change in dashboard + `load_macro_levers()` callers.
 Move a slider -> live override for that session. Code defaults in `model.py` are the
 final fallback. All three agree on the committed base out of the box.
