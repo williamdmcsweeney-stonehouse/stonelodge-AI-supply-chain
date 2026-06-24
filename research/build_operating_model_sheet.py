@@ -1,25 +1,34 @@
 """
 Build a fully LIVE 'Operating Model' sheet in Token_and_Data_Build_Out_v4_2.xlsx:
-Demand -> Supply -> Gap, with a Bull / Base / Bear scenario picker. Every cell is an
-Excel formula; cached values are computed by a Python reference that mirrors each
-formula exactly, so cache == formula (recalc-safe, tie-out verified).
+Demand -> Supply -> Gap, with a Bull / Base / Bear / Central scenario picker. Every
+cell is an Excel formula; cached values are computed by a Python reference that mirrors
+each formula exactly, so cache == formula (recalc-safe, tie-out verified).
 
 Layered design:
   - 'FLOPs to Power' holds the detailed BASE demand assumptions (tokens, N, TFLOP/W,
-    training) and already flexes. This sheet links to it for the base per-year inputs,
-    then overlays SCENARIO adjustments (token growth, efficiency pace, retirement,
-    supply build pace, ITEM 10 shortage utilization) and adds SUPPLY and GAP.
+    training). This sheet links to it, overlays the scenario, and adds SUPPLY + GAP.
   - Base scenario (picker=2) reproduces the FLOPs lens exactly: peak gap ~278 @ 2031,
-    demand floor ~708, gap closes ~2036 -> a built-in consistency check. ITEM 10 is
-    OFF in Bull+Base (ceiling 0) so Base is byte-identical to the prior build.
+    demand floor ~708, asymptote ~2035 -> a built-in consistency check. All new
+    mechanics are NEUTRAL in Base, so Base is byte-identical to the prior build.
 
-  ITEM 10 (shortage-responsive utilization / endogenous market clearing): in any year
-  with a RAW shortage (floored demand > supply), average fleet utilization is crammed
-  from the base 12%->25% ramp up to the scenario ceiling (Bear=0.40), and the power
-  needed to serve the same demand falls as base_util/util_applied. Bear models "the
-  fleet just gets used harder" — the single biggest bull-for-supply / bear-for-trade
-  lever. Latency caps the ceiling (response time ~ 1/(1-util)): ~40% is cheap for
-  interactive inference, ~50%+ needs a batch/agentic-heavy mix.
+  UTILIZATION IS STRUCTURAL (not a shortage-triggered cram). The agentic demand wave
+  and high fleet utilization are the SAME phenomenon: you can't reach the agentic
+  demand levels without the batchable, latency-tolerant workloads that let the fleet
+  run hot. So utilization rises STRUCTURALLY with agentic adoption, ALWAYS-ON (not
+  gated on shortage), ramping from the committed base (~25%) toward a batch ceiling
+  over an adoption window [util_struct_start .. util_struct_full]. Realized power =
+  demand x base_util / util_struct, so the haircut DEEPENS as utilization climbs.
+
+  SCENARIOS:
+  - Bull   = power HIGH & LONG : slower efficiency/supply, no retire, util stays ~25%.
+  - Bear   = power ROLLS OVER  : faster efficiency/supply, retires, util runs to ~60%.
+  - Central= MOST-LIKELY (coupled): second-wave agentic demand 10%/yr from 2034 AND
+    structural utilization ramping 2030->2040 toward ~70% batch ceiling. The two move
+    together by construction. Result: the agentic demand surge is largely ABSORBED by
+    the structural utilization rise, so realized power is flatter/lower than the raw
+    demand pull -- demand nearly plateaus mid-decade, then gently resumes once the
+    utilization runway (~25%->70%, a one-time ~2.8x absorber) is spent. The early
+    (pre-agentic) crunch is NOT eased -- batching relief arrives with agentic, later.
 
   python research/build_operating_model_sheet.py
 
@@ -50,22 +59,21 @@ YEARS = model.YEARS
 N = len(YEARS)
 
 # ── Scenario presets ───────────────────────────────────────────────────────────
-# Columns Bull / Base / Bear. Base == committed FLOPs lens (all adjustments neutral).
-# Bull = power HIGH & LONG: efficiency improves slower, supply builds slower, no
-#        retire, NO cramming (util stays on the base ramp -> demand stays high).
-# Bear = power ROLLS OVER: efficiency faster, supply faster, capacity retires, AND
-#        the fleet is crammed to 40% in shortage years (ITEM 10) -> gap collapses.
-SCEN = {                       #              Bull    Base    Bear
-    "anchor_GW":            (70.0,  70.0,  70.0),
-    "token_growth_adj_yr":  (0.02,  0.0,  -0.02),   # +/- compounding on base token path
-    "efficiency_adj_yr":    (-0.015, 0.0,  0.03),   # + = faster TFLOP/W gain = LESS power
-    "retirement_rate_yr":   (0.0,   0.0,   0.08),   # ITEM 9 floor decay
-    "supply_build_scale":   (0.85,  1.0,   1.15),   # x phase rates (slower build = bigger gap)
-    "util_shortage_ceiling": (0.0,  0.0,   0.40),   # ITEM 10: 0 = off; >0 crams fleet in shortage yrs
+# Columns Bull / Base / Bear / Central. Base == committed FLOPs lens (all neutral).
+SCEN = {                          #          Bull    Base    Bear   Central
+    "anchor_GW":             (70.0,  70.0,  70.0,  70.0),
+    "token_growth_adj_yr":   (0.02,  0.0,  -0.02,  0.0),    # +/- compounding on base token path
+    "efficiency_adj_yr":     (-0.015, 0.0,  0.03,  0.0),    # + = faster TFLOP/W = LESS power
+    "retirement_rate_yr":    (0.0,   0.0,   0.08,  0.0),    # ITEM 9 floor decay
+    "supply_build_scale":    (0.85,  1.0,   1.15,  1.0),    # x phase rates
+    "util_struct_ceiling":   (0.0,   0.0,   0.60,  0.70),   # STRUCTURAL util terminal (<=0.25 = off)
+    "second_wave_growth":    (0.0,   0.0,   0.0,   0.10),   # ITEM 7 re-accel /yr from SW_START (0=off)
 }
+SW_START = 2034                    # shared second-wave start year (editable on-sheet)
+USTART, UFULL = 2030, 2040         # shared structural-utilization adoption window (editable)
 UTIL_BASE = (0.12, 0.25)           # committed base utilization ramp 2025 -> 2035 (ITEM 6)
 PHASE = (0.22, 0.30, 0.25, 0.15)   # 26-27, 28-30, 31-35, 36-42 (editable on-sheet)
-PICKER_DEFAULT = 2                 # 1=Bull 2=Base 3=Bear -> caches show Base
+PICKER_DEFAULT = 2                 # 1=Bull 2=Base 3=Bear 4=Central -> caches show Base
 
 esc = lambda s: str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
@@ -103,32 +111,51 @@ def ubase_of(y):
     return UTIL_BASE[0] + min(1.0, (y - 2025) / 10.0) * (UTIL_BASE[1] - UTIL_BASE[0])
 
 
+def ustruct_of(y, ceiling):
+    """Structural utilization: base ramp until USTART, then ramp to `ceiling` by UFULL.
+    Off (returns base ramp) when ceiling <= the committed base terminal (0.25)."""
+    if ceiling <= UTIL_BASE[1]:
+        return ubase_of(y)
+    if y <= USTART:
+        return ubase_of(y)
+    ub_s = ubase_of(USTART)
+    frac = min(1.0, (y - USTART) / (UFULL - USTART))
+    return ub_s + frac * (ceiling - ub_s)
+
+
 # ── Python reference: compute the Base-scenario caches that mirror the formulas ──
 def reference():
     """Return dicts of per-year base inputs + the active(Base)-scenario outputs."""
-    # Mirror EXACTLY what 'FLOPs to Power' caches (committed FLOPs lens): FLOPs/token =
-    # 2 x N_active (training share 0 there), and N from the committed _avg_n_active_b.
     tok = model.build_token_demand("Base")
     mf = model.build_macro_gap(tok, use_flops_demand=True)
     base_tokens = {y: float(mf.loc[y, "gross_tokens_T"]) for y in YEARS}
     base_fpt = {y: 2.0 * float(mf.loc[y, "avg_n_active_b"]) * 1e9 for y in YEARS}
     base_tflopw = {y: model.tflop_per_w_for_year(y) for y in YEARS}
 
-    # Active scenario = Base (picker default). Adjustments all neutral -> reproduces FLOPs lens.
+    # Active scenario = Base (picker default). All adjustments neutral -> FLOPs lens.
     anchor = SCEN["anchor_GW"][1]
     tadj = SCEN["token_growth_adj_yr"][1]
     eadj = SCEN["efficiency_adj_yr"][1]
     retire = SCEN["retirement_rate_yr"][1]
     sscale = SCEN["supply_build_scale"][1]
-    ceiling = SCEN["util_shortage_ceiling"][1]      # ITEM 10: 0.0 for Base -> no cram
+    sceil = SCEN["util_struct_ceiling"][1]      # 0.0 for Base -> structural util OFF
+    swg = SCEN["second_wave_growth"][1]         # 0.0 for Base -> no re-accel
 
     tokens = {y: base_tokens[y] * (1 + tadj) ** (y - 2025) for y in YEARS}
     tflopw = {y: base_tflopw[y] * (1 + eadj) ** (y - 2025) for y in YEARS}
     raw_pull = {y: tokens[y] * base_fpt[y] / tflopw[y] for y in YEARS}
     raw_demand = {y: raw_pull[y] / raw_pull[2025] * anchor for y in YEARS}
+
     floored = {}
     for y in YEARS:
-        floored[y] = raw_demand[y] if y == 2025 else max(raw_demand[y], floored[y - 1] * (1 - retire))
+        if y == 2025:
+            floored[y] = raw_demand[y]
+            continue
+        terms = [raw_demand[y], floored[y - 1] * (1 - retire)]
+        if y >= SW_START:
+            g = (tokens[y] - tokens[y - 1]) / tokens[y - 1]
+            terms.append(floored[y - 1] * (1 + min(g, swg)))
+        floored[y] = max(terms)
 
     def rate(y):
         r = PHASE[0] if y <= 2027 else PHASE[1] if y <= 2030 else PHASE[2] if y <= 2035 else PHASE[3]
@@ -137,12 +164,11 @@ def reference():
     for y in YEARS:
         supply[y] = anchor if y == 2025 else supply[y - 1] * (1 + rate(y))
 
-    # ITEM 10: crank utilization in raw-shortage years, haircut demand by base/applied.
+    # STRUCTURAL utilization (always-on); realized demand = floored * base_util / util_struct.
     ubase = {y: ubase_of(y) for y in YEARS}
     util_applied, crammed, gap = {}, {}, {}
     for y in YEARS:
-        raw_gap = floored[y] - supply[y]
-        ua = max(ubase[y], ceiling) if (ceiling > 0 and raw_gap > 0) else ubase[y]
+        ua = ustruct_of(y, sceil)
         util_applied[y] = ua
         crammed[y] = floored[y] * ubase[y] / ua
         gap[y] = crammed[y] - supply[y]
@@ -153,124 +179,143 @@ def reference():
     balance_year = bal[0] if bal else None
     ov = [y for y in YEARS if gap[y] < 0]
     overshoot_year = ov[0] if ov else None
+    asym = None
+    yl = list(YEARS)
+    for j, y in enumerate(yl):
+        if y > 2027 and crammed[yl[j - 1]] > 0 and (crammed[y] - crammed[yl[j - 1]]) / crammed[yl[j - 1]] < 0.02:
+            asym = y
+            break
     return dict(base_tokens=base_tokens, base_fpt=base_fpt, base_tflopw=base_tflopw,
                 tokens=tokens, tflopw=tflopw, raw_demand=raw_demand, floored=floored,
                 supply=supply, ubase=ubase, util_applied=util_applied, crammed=crammed,
                 gap=gap, peak_gap=peak_gap, peak_year=peak_year,
-                balance_year=balance_year, overshoot_year=overshoot_year)
+                balance_year=balance_year, overshoot_year=overshoot_year, asymptote_year=asym)
 
 
 def build_xml():
     ref = reference()
     rows = {}
 
-    # Header / instructions
-    rows[1] = [cs("A1", "OPERATING MODEL  —  Demand / Supply / Gap  (Bull / Base / Bear)", bold=True)]
-    rows[2] = [cs("A2", "Set scenario in B3 (1=Bull, 2=Base, 3=Bear). Everything recomputes. "
-                        "Base inputs (tokens, N, TFLOP/W, training) live on 'FLOPs to Power'; "
-                        "this sheet overlays the scenario and adds supply + gap. ITEM 10: a "
-                        "shortage utilization ceiling (Bear=40%) crams the fleet in short years.")]
-    rows[3] = [cs("A3", "SCENARIO  (1=Bull  2=Base  3=Bear)", bold=True), cn("B3", PICKER_DEFAULT)]
-    rows[4] = [cs("A4", "active scenario"), cf("B4", '=CHOOSE(B3,"Bull","Base","Bear")', "Base")]
+    rows[1] = [cs("A1", "OPERATING MODEL  —  Demand / Supply / Gap  (Bull / Base / Bear / Central)", bold=True)]
+    rows[2] = [cs("A2", "Set scenario in B3 (1=Bull, 2=Base, 3=Bear, 4=Central). Everything recomputes. "
+                        "CENTRAL = most-likely COUPLED case: second-wave agentic demand 10%/yr from 2034 AND "
+                        "STRUCTURAL utilization ramping 2030->2040 toward 70% (batch ceiling). Util rises WITH "
+                        "agentic, always-on, so the demand surge is largely absorbed: realized power flattens "
+                        "mid-decade, then gently resumes once the ~25%->70% utilization runway is spent.")]
+    rows[3] = [cs("A3", "SCENARIO  (1=Bull 2=Base 3=Bear 4=Central)", bold=True), cn("B3", PICKER_DEFAULT)]
+    rows[4] = [cs("A4", "active scenario"), cf("B4", '=CHOOSE(B3,"Bull","Base","Bear","Central")', "Base")]
 
-    # Scenario input table (Bull col B, Base col C, Bear col D)
     rows[6] = [cs("A6", "SCENARIO INPUTS", bold=True), cs("B6", "Bull", bold=True),
-               cs("C6", "Base", bold=True), cs("D6", "Bear", bold=True)]
+               cs("C6", "Base", bold=True), cs("D6", "Bear", bold=True), cs("E6", "Central", bold=True)]
     keys = list(SCEN.keys())
     labels = {"anchor_GW": "anchor GW 2025",
               "token_growth_adj_yr": "token growth adj (per yr)",
               "efficiency_adj_yr": "efficiency adj (per yr, + = faster = less power)",
               "retirement_rate_yr": "capacity retirement (per yr)",
               "supply_build_scale": "supply build scale (x phase rates)",
-              "util_shortage_ceiling": "shortage util ceiling (ITEM 10; 0 = off)"}
+              "util_struct_ceiling": "STRUCTURAL util ceiling (<=0.25 = off; agentic batch ceiling)",
+              "second_wave_growth": "ITEM7 second-wave demand re-accel /yr (0 = off)"}
     for i, k in enumerate(keys):
         r = 7 + i
-        b, c, d = SCEN[k]
-        rows[r] = [cs(f"A{r}", labels[k]), cn(f"B{r}", b), cn(f"C{r}", c), cn(f"D{r}", d)]
-    last_scen_row = 7 + len(keys) - 1   # 12
+        b, c, d, e = SCEN[k]
+        rows[r] = [cs(f"A{r}", labels[k]), cn(f"B{r}", b), cn(f"C{r}", c), cn(f"D{r}", d), cn(f"E{r}", e)]
+    last_scen_row = 7 + len(keys) - 1   # 13
 
-    # Editable supply phase rates (shared; scaled by the active supply_build_scale)
-    rows[14] = [cs("A14", "SUPPLY PHASE RATES (per yr, editable)", bold=True)]
+    rows[15] = [cs("A15", "SUPPLY PHASE RATES (per yr, editable)", bold=True)]
     pr_cell = {}
     for i, (cap, (lbl, val)) in enumerate(zip([2027, 2030, 2035, 2042],
                                               [("2026-2027", PHASE[0]), ("2028-2030", PHASE[1]),
                                                ("2031-2035", PHASE[2]), ("2036-2042", PHASE[3])])):
-        r = 15 + i
+        r = 16 + i
         rows[r] = [cs(f"A{r}", lbl), cn(f"B{r}", val)]
-        pr_cell[cap] = f"$B${r}"   # 2027->B15, 2030->B16, 2035->B17, 2042->B18
+        pr_cell[cap] = f"$B${r}"   # 2027->B16, 2030->B17, 2035->B18, 2042->B19
 
-    # Active (scenario-picked) inputs.  B21 anchor / B22 tadj / B23 eadj / B24 retire /
-    # B25 sscale / B26 util ceiling.
+    rows[21] = [cs("A21", "second-wave start year (ITEM7)"), cn("B21", SW_START)]
+    rows[22] = [cs("A22", "structural util ramp start year"), cn("B22", USTART)]
+    rows[23] = [cs("A23", "structural util full year (hits ceiling)"), cn("B23", UFULL)]
+
+    # Active (scenario-picked). B26 anchor / B27 tadj / B28 eadj / B29 retire /
+    # B30 sscale / B31 struct-util-ceiling / B32 second-wave-growth.
     def active(r, label, scen_row):
         rows[r] = [cs(f"A{r}", label),
-                   cf(f"B{r}", f"=CHOOSE($B$3,B{scen_row},C{scen_row},D{scen_row})",
+                   cf(f"B{r}", f"=CHOOSE($B$3,B{scen_row},C{scen_row},D{scen_row},E{scen_row})",
                       SCEN[keys[scen_row - 7]][PICKER_DEFAULT - 1])]
-    rows[20] = [cs("A20", "ACTIVE (from scenario)", bold=True)]
-    active(21, "anchor GW", 7)
-    active(22, "token growth adj", 8)
-    active(23, "efficiency adj", 9)
-    active(24, "retirement rate", 10)
-    active(25, "supply build scale", 11)
-    active(26, "shortage util ceiling", 12)
+    rows[25] = [cs("A25", "ACTIVE (from scenario)", bold=True)]
+    active(26, "anchor GW", 7)
+    active(27, "token growth adj", 8)
+    active(28, "efficiency adj", 9)
+    active(29, "retirement rate", 10)
+    active(30, "supply build scale", 11)
+    active(31, "structural util ceiling", 12)
+    active(32, "second-wave growth", 13)
 
-    # Per-year engine
-    HDR = 29
-    D0 = HDR + 1                # 2025 data row = 30
+    HDR = 34
+    D0 = HDR + 1                # 2025 data row = 35
     rows[HDR] = [cs(f"A{HDR}", "year", bold=True), cs(f"B{HDR}", "tokens/day T", bold=True),
                  cs(f"C{HDR}", "FLOPs/token", bold=True), cs(f"D{HDR}", "eff TFLOP/W", bold=True),
                  cs(f"E{HDR}", "raw demand GW", bold=True), cs(f"F{HDR}", "demand floored GW", bold=True),
                  cs(f"G{HDR}", "supply GW", bold=True), cs(f"H{HDR}", "base util", bold=True),
-                 cs(f"I{HDR}", "util applied", bold=True), cs(f"J{HDR}", "demand crammed GW", bold=True),
+                 cs(f"I{HDR}", "util structural", bold=True), cs(f"J{HDR}", "realized power GW", bold=True),
                  cs(f"K{HDR}", "GAP GW", bold=True), cs(f"L{HDR}", "_bal", bold=True),
-                 cs(f"M{HDR}", "_over", bold=True)]
+                 cs(f"M{HDR}", "_over", bold=True), cs(f"N{HDR}", "_asym", bold=True)]
+    # structural-util sub-expression: base util AT the ramp-start year B22
+    ub_start = "(0.12+MIN(1,($B$22-2025)/10)*0.13)"
     for i, y in enumerate(YEARS):
         r = D0 + i
         yrs = y - 2025
         fpr = fp_row(y)
-        # B tokens = FLOPs!B * (1+tadj)^yrs ; C fpt = FLOPs!F ; D tflopw = FLOPs!E * (1+eadj)^yrs
-        b_f = f"={FP}!B{fpr}*(1+$B$22)^{yrs}"
+        b_f = f"={FP}!B{fpr}*(1+$B$27)^{yrs}"
         c_f = f"={FP}!F{fpr}"
-        d_f = f"={FP}!E{fpr}*(1+$B$23)^{yrs}"
-        # E raw demand = (B*C/D) / (B$D0*C$D0/D$D0) * anchor
-        e_f = f"=(B{r}*C{r}/D{r})/(B{D0}*C{D0}/D{D0})*$B$21"
+        d_f = f"={FP}!E{fpr}*(1+$B$28)^{yrs}"
+        e_f = f"=(B{r}*C{r}/D{r})/(B{D0}*C{D0}/D{D0})*$B$26"
         rows[r] = [cn(f"A{r}", int(y)),
                    cf(f"B{r}", b_f, ref["tokens"][y]),
                    cf(f"C{r}", c_f, ref["base_fpt"][y]),
                    cf(f"D{r}", d_f, ref["tflopw"][y]),
                    cf(f"E{r}", e_f, ref["raw_demand"][y])]
-        # F floored
+        # F floored: monotonic (retire) + second-wave re-accel from B21 capped at B32
         if i == 0:
             f_f = f"=E{r}"
         else:
-            f_f = f"=MAX(E{r},F{r-1}*(1-$B$24))"
+            sw = f"IF(A{r}>=$B$21,F{r-1}*(1+MIN((B{r}-B{r-1})/B{r-1},$B$32)),0)"
+            f_f = f"=MAX(E{r},F{r-1}*(1-$B$29),{sw})"
         rows[r].append(cf(f"F{r}", f_f, ref["floored"][y]))
         # G supply
         if i == 0:
-            g_f = f"=$B$21"
+            g_f = f"=$B$26"
         else:
             rate_f = (f"IF(A{r}<=2027,{pr_cell[2027]},IF(A{r}<=2030,{pr_cell[2030]},"
                       f"IF(A{r}<=2035,{pr_cell[2035]},{pr_cell[2042]})))")
-            g_f = f"=G{r-1}*(1+{rate_f}*$B$25)"
+            g_f = f"=G{r-1}*(1+{rate_f}*$B$30)"
         rows[r].append(cf(f"G{r}", g_f, ref["supply"][y]))
-        # H base util ramp = 0.12 + MIN(1,(yr-2025)/10)*(0.25-0.12)
+        # H base util ramp
         h_f = f"={UTIL_BASE[0]}+MIN(1,(A{r}-2025)/10)*({UTIL_BASE[1]}-{UTIL_BASE[0]})"
         rows[r].append(cf(f"H{r}", h_f, ref["ubase"][y]))
-        # I util applied = IF(ceiling>0 AND raw shortage, MAX(base, ceiling), base)
-        i_f = f"=IF(AND($B$26>0,F{r}-G{r}>0),MAX(H{r},$B$26),H{r})"
+        # I structural util: off (<=0.25) -> base ramp; else ramp from ub(B22) to ceiling by B23
+        i_f = (f"=IF($B$31<=0.25,H{r},IF(A{r}<=$B$22,H{r},"
+               f"{ub_start}+MIN(1,(A{r}-$B$22)/($B$23-$B$22))*($B$31-{ub_start})))")
         rows[r].append(cf(f"I{r}", i_f, ref["util_applied"][y]))
-        # J crammed demand = F * base_util / util_applied
+        # J realized power = floored demand * base_util / structural_util
         rows[r].append(cf(f"J{r}", f"=F{r}*H{r}/I{r}", ref["crammed"][y]))
-        # K gap = crammed - supply
+        # K gap = realized power - supply
         rows[r].append(cf(f"K{r}", f"=J{r}-G{r}", ref["gap"][y]))
-        # L bal candidate, M over candidate (helpers for summary; peak-year ref patched below)
+        # L bal, M over, N asymptote helpers (peak-year ref patched below)
         bal_cache = y if (y >= ref["peak_year"] and ref["gap"][y] < 30) else 99999
         over_cache = y if ref["gap"][y] < 0 else 99999
-        rows[r].append(cf(f"L{r}", "=0", bal_cache))      # patched below to real peak-year cell
+        rows[r].append(cf(f"L{r}", "=0", bal_cache))
         rows[r].append(cf(f"M{r}", f"=IF(K{r}<0,A{r},99999)", over_cache))
+        if i == 0:
+            n_f, asym_cache = "=99999", 99999
+        else:
+            n_f = f"=IF(AND(A{r}>2027,(J{r}-J{r-1})/J{r-1}<0.02),A{r},99999)"
+            prev_c = ref["crammed"][YEARS[i - 1]]
+            asym_cache = (y if (y > 2027 and prev_c > 0
+                                and (ref["crammed"][y] - prev_c) / prev_c < 0.02) else 99999)
+        rows[r].append(cf(f"N{r}", n_f, asym_cache))
     last_data = D0 + N - 1
 
     # Summary
-    S = last_data + 2          # peak gap row
+    S = last_data + 2
     grange = f"K{D0}:K{last_data}"
     arange = f"A{D0}:A{last_data}"
     rows[S] = [cs(f"A{S}", "PEAK GAP (GW)", bold=True), cf(f"B{S}", f"=MAX({grange})", ref["peak_gap"])]
@@ -284,23 +329,26 @@ def build_xml():
     rows[S+3] = [cs(f"A{S+3}", "overshoot year (gap<0)"),
                  cf(f"B{S+3}", f'=IF(MIN(M{D0}:M{last_data})=99999,"post-2042",MIN(M{D0}:M{last_data}))',
                     ov if ov else "post-2042")]
-    rows[S+4] = [cs(f"A{S+4}", "demand floor 2042 (GW)"),
-                 cf(f"B{S+4}", f"=ROUND(F{last_data},0)", round(ref["floored"][2042]))]
-    # Patch the balance helper L to reference the real peak-year cell B{S+1}.
+    rows[S+4] = [cs(f"A{S+4}", "realized power 2042 (GW)"),
+                 cf(f"B{S+4}", f"=ROUND(J{last_data},0)", round(ref["crammed"][2042]))]
+    asy = ref["asymptote_year"]
+    rows[S+5] = [cs(f"A{S+5}", "demand asymptote year (YoY<2%)", bold=True),
+                 cf(f"B{S+5}", f'=IF(MIN(N{D0}:N{last_data})=99999,"post-2042 (still climbing)",MIN(N{D0}:N{last_data}))',
+                    asy if asy else "post-2042 (still climbing)")]
     for i, y in enumerate(YEARS):
         r = D0 + i
         rows[r][11] = cf(f"L{r}", f"=IF(AND(A{r}>=$B${S+1},K{r}<30),A{r},99999)",
                          (y if (y >= ref["peak_year"] and ref["gap"][y] < 30) else 99999))
 
-    last = S + 4
+    last = S + 5
     body = "".join(f'<row r="{n}">{"".join(rows[n])}</row>' for n in sorted(rows))
     return (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n'
         '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
         'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-        f'<dimension ref="A1:M{last}"/><sheetViews><sheetView workbookViewId="0"/></sheetViews>'
+        f'<dimension ref="A1:N{last}"/><sheetViews><sheetView workbookViewId="0"/></sheetViews>'
         '<sheetFormatPr defaultRowHeight="15"/>'
-        '<cols><col min="1" max="1" width="40"/><col min="2" max="13" width="15"/></cols>'
+        '<cols><col min="1" max="1" width="46"/><col min="2" max="14" width="15"/></cols>'
         '<sheetData>' + body + '</sheetData></worksheet>'
     )
 

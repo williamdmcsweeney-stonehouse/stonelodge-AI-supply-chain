@@ -465,19 +465,24 @@ with st.sidebar.expander("Advanced — FLOPs demand, retirement & shortage util 
         help="0 = strict monotonic floor (committed plateau). 1 = floor fully released "
              "(raw-physics demand cliff). Between = old capacity retires at this rate/yr.",
     )
-    util_shortage_ceiling_in = st.slider(
-        "Shortage utilization ceiling (ITEM 10)", 0.0, 0.60, 0.0, 0.05,
-        help="0 = OFF (committed base gives ZERO credit for util rising). >0 = endogenous "
-             "market clearing: in any year with a raw shortage, average fleet utilization is "
-             "crammed to max(base 12%->25% ramp, this ceiling), so the same supply serves more "
-             "demand (power ~ 1/util). ~0.40 is cheap for interactive inference; ~0.50+ needs a "
-             "batch/agentic-heavy mix (latency ~ 1/(1-util)). The biggest bull-for-supply lever.",
+    util_struct_ceiling_in = st.slider(
+        "Structural utilization ceiling (ITEM 10)", 0.0, 0.80, 0.0, 0.05,
+        help="0 = OFF (committed base gives ZERO credit for util rising). >0 = STRUCTURAL "
+             "coupling: utilization rises WITH agentic adoption (always-on, not shortage-gated), "
+             "ramping from the base ~25% toward this batch ceiling over the window below. The "
+             "agentic demand surge is the SAME phenomenon — batchable workloads run the fleet "
+             "hot — so demand is haircut by base_util/util_struct and largely absorbed. ~0.70 = "
+             "batch/agentic-heavy; latency caps interactive at ~0.40-0.50 (response ~ 1/(1-util)). "
+             "Pair with a second-wave demand re-accel for the coupled 'Central' case.",
     )
-    # 0 on the slider means OFF (None); the model only crams when a ceiling is set.
-    util_shortage_ceiling = util_shortage_ceiling_in if util_shortage_ceiling_in > 0 else None
-    if util_shortage_ceiling is not None:
-        st.caption(f"⚡ Cramming fleet to {util_shortage_ceiling*100:.0f}% in shortage years — "
-                   "demand haircut by base_util / ceiling.")
+    util_struct_ceiling = util_struct_ceiling_in if util_struct_ceiling_in > 0.25 else None
+    cS, cF = st.columns(2)
+    util_struct_start_year = cS.number_input("  └ ramp start yr", 2025, 2042, 2030, 1, key="ustart")
+    util_struct_full_year = cF.number_input("  └ full by yr", 2026, 2050, 2040, 1, key="ufull")
+    if util_struct_ceiling is not None:
+        st.caption(f"⚡ Structural util ramps base→{util_struct_ceiling*100:.0f}% over "
+                   f"{int(util_struct_start_year)}–{int(util_struct_full_year)} (always-on); "
+                   "demand haircut by base_util / util_struct.")
     flops_mfu = st.slider(
         "Model FLOPs utilization (MFU)", 0.10, 0.60, float(_lev["flops_mfu"]), 0.05,
         help="Fraction of peak FLOP/s actually achieved. Cancels in the 2025 re-anchor, "
@@ -550,7 +555,8 @@ def run_model(
     use_vintaged, anchor_gw, fleet_life,
     supply_rates,
     use_flops_demand, flops_n_active_b, flops_mix_2025, flops_mix_2040,
-    flops_mfu, capacity_retirement_rate, util_shortage_ceiling,
+    flops_mfu, capacity_retirement_rate, util_struct_ceiling,
+    util_struct_start_year, util_struct_full_year,
 ):
     tok = build_token_demand(
         scenario=scenario, ai_users_2025_M=ai_users,
@@ -574,7 +580,9 @@ def run_model(
         flops_mix_2040=flops_mix_2040,
         flops_mfu=flops_mfu,
         capacity_retirement_rate=capacity_retirement_rate,
-        util_shortage_ceiling=util_shortage_ceiling,
+        util_struct_ceiling=util_struct_ceiling,
+        util_struct_start_year=int(util_struct_start_year),
+        util_struct_full_year=int(util_struct_full_year),
     )
     # Layer-level model (granular drilldown)
     if use_vintaged:
@@ -600,7 +608,8 @@ tok_df, macro_df, inf_df, tight_df = run_model(
     doubling, util_2025, tuple(custom_supply.items()),
     use_vintaged, anchor_gw, fleet_life, supply_rates,
     use_flops_demand, flops_n_active_b, flops_mix_2025, flops_mix_2040,
-    flops_mfu, capacity_retirement_rate, util_shortage_ceiling,
+    flops_mfu, capacity_retirement_rate, util_struct_ceiling,
+    util_struct_start_year, util_struct_full_year,
 )
 inflection = power_inflection_year(inf_df)
 gap_stats = gap_summary(macro_df)
