@@ -201,7 +201,9 @@ def build_xml():
                         "CENTRAL = most-likely COUPLED case: second-wave agentic demand 10%/yr from 2034 AND "
                         "STRUCTURAL utilization ramping 2030->2040 toward 70% (batch ceiling). Util rises WITH "
                         "agentic, always-on, so the demand surge is largely absorbed: realized power flattens "
-                        "mid-decade, then gently resumes once the ~25%->70% utilization runway is spent.")]
+                        "mid-decade, then gently resumes once the ~25%->70% utilization runway is spent. "
+                        "ANNUAL UTILIZATION: col I = structural (auto); type a value in col J (util OVERRIDE) "
+                        "to flex any single year; col K = util USED feeds realized power + gap.")]
     rows[3] = [cs("A3", "SCENARIO  (1=Bull 2=Base 3=Bear 4=Central)", bold=True), cn("B3", PICKER_DEFAULT)]
     rows[4] = [cs("A4", "active scenario"), cf("B4", '=CHOOSE(B3,"Bull","Base","Bear","Central")', "Base")]
 
@@ -255,9 +257,11 @@ def build_xml():
                  cs(f"C{HDR}", "FLOPs/token", bold=True), cs(f"D{HDR}", "eff TFLOP/W", bold=True),
                  cs(f"E{HDR}", "raw demand GW", bold=True), cs(f"F{HDR}", "demand floored GW", bold=True),
                  cs(f"G{HDR}", "supply GW", bold=True), cs(f"H{HDR}", "base util", bold=True),
-                 cs(f"I{HDR}", "util structural", bold=True), cs(f"J{HDR}", "realized power GW", bold=True),
-                 cs(f"K{HDR}", "GAP GW", bold=True), cs(f"L{HDR}", "_bal", bold=True),
-                 cs(f"M{HDR}", "_over", bold=True), cs(f"N{HDR}", "_asym", bold=True)]
+                 cs(f"I{HDR}", "util structural (auto)", bold=True),
+                 cs(f"J{HDR}", "util OVERRIDE (blank=auto)", bold=True),
+                 cs(f"K{HDR}", "util USED", bold=True), cs(f"L{HDR}", "realized power GW", bold=True),
+                 cs(f"M{HDR}", "GAP GW", bold=True), cs(f"N{HDR}", "_bal", bold=True),
+                 cs(f"O{HDR}", "_over", bold=True), cs(f"P{HDR}", "_asym", bold=True)]
     # structural-util sub-expression: base util AT the ramp-start year B22
     ub_start = "(0.12+MIN(1,($B$22-2025)/10)*0.13)"
     for i, y in enumerate(YEARS):
@@ -291,53 +295,58 @@ def build_xml():
         # H base util ramp
         h_f = f"={UTIL_BASE[0]}+MIN(1,(A{r}-2025)/10)*({UTIL_BASE[1]}-{UTIL_BASE[0]})"
         rows[r].append(cf(f"H{r}", h_f, ref["ubase"][y]))
-        # I structural util: off (<=0.25) -> base ramp; else ramp from ub(B22) to ceiling by B23
+        # I structural util (auto): off (<=0.25) -> base ramp; else ramp from ub(B22) to ceiling by B23
         i_f = (f"=IF($B$31<=0.25,H{r},IF(A{r}<=$B$22,H{r},"
                f"{ub_start}+MIN(1,(A{r}-$B$22)/($B$23-$B$22))*($B$31-{ub_start})))")
         rows[r].append(cf(f"I{r}", i_f, ref["util_applied"][y]))
-        # J realized power = floored demand * base_util / structural_util
-        rows[r].append(cf(f"J{r}", f"=F{r}*H{r}/I{r}", ref["crammed"][y]))
-        # K gap = realized power - supply
-        rows[r].append(cf(f"K{r}", f"=J{r}-G{r}", ref["gap"][y]))
-        # L bal, M over, N asymptote helpers (peak-year ref patched below)
+        # J util OVERRIDE: blank by default -> editable. Type any year's utilization (e.g. 0.50)
+        # here to flex that single year; leave blank to use the structural-auto value in I.
+        rows[r].append(f'<c r="J{r}"/>')
+        # K util USED = override if present, else structural-auto
+        rows[r].append(cf(f"K{r}", f"=IF(ISBLANK(J{r}),I{r},J{r})", ref["util_applied"][y]))
+        # L realized power = floored demand * base_util / util USED
+        rows[r].append(cf(f"L{r}", f"=F{r}*H{r}/K{r}", ref["crammed"][y]))
+        # M gap = realized power - supply
+        rows[r].append(cf(f"M{r}", f"=L{r}-G{r}", ref["gap"][y]))
+        # N bal, O over, P asymptote helpers (peak-year ref patched below)
         bal_cache = y if (y >= ref["peak_year"] and ref["gap"][y] < 30) else 99999
         over_cache = y if ref["gap"][y] < 0 else 99999
-        rows[r].append(cf(f"L{r}", "=0", bal_cache))
-        rows[r].append(cf(f"M{r}", f"=IF(K{r}<0,A{r},99999)", over_cache))
+        rows[r].append(cf(f"N{r}", "=0", bal_cache))
+        rows[r].append(cf(f"O{r}", f"=IF(M{r}<0,A{r},99999)", over_cache))
         if i == 0:
-            n_f, asym_cache = "=99999", 99999
+            p_f, asym_cache = "=99999", 99999
         else:
-            n_f = f"=IF(AND(A{r}>2027,(J{r}-J{r-1})/J{r-1}<0.02),A{r},99999)"
+            p_f = f"=IF(AND(A{r}>2027,(L{r}-L{r-1})/L{r-1}<0.02),A{r},99999)"
             prev_c = ref["crammed"][YEARS[i - 1]]
             asym_cache = (y if (y > 2027 and prev_c > 0
                                 and (ref["crammed"][y] - prev_c) / prev_c < 0.02) else 99999)
-        rows[r].append(cf(f"N{r}", n_f, asym_cache))
+        rows[r].append(cf(f"P{r}", p_f, asym_cache))
     last_data = D0 + N - 1
 
     # Summary
     S = last_data + 2
-    grange = f"K{D0}:K{last_data}"
+    grange = f"M{D0}:M{last_data}"
     arange = f"A{D0}:A{last_data}"
     rows[S] = [cs(f"A{S}", "PEAK GAP (GW)", bold=True), cf(f"B{S}", f"=MAX({grange})", ref["peak_gap"])]
     rows[S+1] = [cs(f"A{S+1}", "peak year"),
                  cf(f"B{S+1}", f"=INDEX({arange},MATCH(MAX({grange}),{grange},0))", ref["peak_year"])]
     bal = ref["balance_year"]
     rows[S+2] = [cs(f"A{S+2}", "balance year (gap<30 after peak)"),
-                 cf(f"B{S+2}", f'=IF(MIN(L{D0}:L{last_data})=99999,"post-2042",MIN(L{D0}:L{last_data}))',
+                 cf(f"B{S+2}", f'=IF(MIN(N{D0}:N{last_data})=99999,"post-2042",MIN(N{D0}:N{last_data}))',
                     bal if bal else "post-2042")]
     ov = ref["overshoot_year"]
     rows[S+3] = [cs(f"A{S+3}", "overshoot year (gap<0)"),
-                 cf(f"B{S+3}", f'=IF(MIN(M{D0}:M{last_data})=99999,"post-2042",MIN(M{D0}:M{last_data}))',
+                 cf(f"B{S+3}", f'=IF(MIN(O{D0}:O{last_data})=99999,"post-2042",MIN(O{D0}:O{last_data}))',
                     ov if ov else "post-2042")]
     rows[S+4] = [cs(f"A{S+4}", "realized power 2042 (GW)"),
-                 cf(f"B{S+4}", f"=ROUND(J{last_data},0)", round(ref["crammed"][2042]))]
+                 cf(f"B{S+4}", f"=ROUND(L{last_data},0)", round(ref["crammed"][2042]))]
     asy = ref["asymptote_year"]
     rows[S+5] = [cs(f"A{S+5}", "demand asymptote year (YoY<2%)", bold=True),
-                 cf(f"B{S+5}", f'=IF(MIN(N{D0}:N{last_data})=99999,"post-2042 (still climbing)",MIN(N{D0}:N{last_data}))',
+                 cf(f"B{S+5}", f'=IF(MIN(P{D0}:P{last_data})=99999,"post-2042 (still climbing)",MIN(P{D0}:P{last_data}))',
                     asy if asy else "post-2042 (still climbing)")]
     for i, y in enumerate(YEARS):
         r = D0 + i
-        rows[r][11] = cf(f"L{r}", f"=IF(AND(A{r}>=$B${S+1},K{r}<30),A{r},99999)",
+        rows[r][13] = cf(f"N{r}", f"=IF(AND(A{r}>=$B${S+1},M{r}<30),A{r},99999)",
                          (y if (y >= ref["peak_year"] and ref["gap"][y] < 30) else 99999))
 
     last = S + 5
@@ -346,9 +355,9 @@ def build_xml():
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n'
         '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
         'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-        f'<dimension ref="A1:N{last}"/><sheetViews><sheetView workbookViewId="0"/></sheetViews>'
+        f'<dimension ref="A1:P{last}"/><sheetViews><sheetView workbookViewId="0"/></sheetViews>'
         '<sheetFormatPr defaultRowHeight="15"/>'
-        '<cols><col min="1" max="1" width="46"/><col min="2" max="14" width="15"/></cols>'
+        '<cols><col min="1" max="1" width="46"/><col min="2" max="16" width="15"/></cols>'
         '<sheetData>' + body + '</sheetData></worksheet>'
     )
 
