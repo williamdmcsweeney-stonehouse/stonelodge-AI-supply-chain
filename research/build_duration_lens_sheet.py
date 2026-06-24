@@ -33,7 +33,12 @@ FP = "'FLOPs to Power'"      # the live-mechanics sheet; col I = power_GW_floore
 H = 47                       # existing bold cellXf index (no fill)
 
 esc = lambda s: str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-fmt = lambda v: ("%.8g" % v) if isinstance(v, (int, float)) else str(v)
+# Full-precision cache so cache == formula exactly (clean tie-out audit, recalc-safe).
+# Coerce to NATIVE float first — repr(np.float64(x)) emits 'np.float64(x)' (invalid XML).
+def fmt(v):
+    if isinstance(v, int) and not isinstance(v, bool):
+        return str(v)
+    return repr(float(v))
 
 
 def cs(ref, text, bold=False):
@@ -90,12 +95,13 @@ def build_xml():
         add([cs(f"A{r}", label),
              cf(f"B{r}", f"{FP}!{col}{r0}", v0),
              cf(f"C{r}", f"{FP}!{col}{r1}", v1)])
+    # Step labels avoid a leading '=' so they are unambiguously text, never a formula.
     n0, n1 = mf.loc[y0, "avg_n_active_b"], mf.loc[y1, "avg_n_active_b"]
     conv("tokens/day (T)", "B", mf.loc[y0, "gross_tokens_T"], mf.loc[y1, "gross_tokens_T"])
-    conv("x  FLOPs/token (2 x N_active)", "F", 2 * n0 * 1e9, 2 * n1 * 1e9)
-    conv("=  FLOPs/day", "G", mf.loc[y0, "flops_per_day"], mf.loc[y1, "flops_per_day"])
-    conv("/  chip efficiency (TFLOP/W)", "E", model.tflop_per_w_for_year(y0), model.tflop_per_w_for_year(y1))
-    conv("=  power (GW)", "I", mf.loc[y0, "demand_gw"], mf.loc[y1, "demand_gw"])
+    conv("x  FLOPs per token (2 x N_active)", "F", 2 * n0 * 1e9, 2 * n1 * 1e9)
+    conv("->  FLOPs per day", "G", mf.loc[y0, "flops_per_day"], mf.loc[y1, "flops_per_day"])
+    conv("/  chip efficiency (TFLOP per W)", "E", model.tflop_per_w_for_year(y0), model.tflop_per_w_for_year(y1))
+    conv("->  power (GW)", "I", mf.loc[y0, "demand_gw"], mf.loc[y1, "demand_gw"])
     blank()
 
     add([cs(f"A{R[0]+1}", "3. THE TUG-OF-WAR  (why power grows ~10x, not ~176x)", bold=True)])
@@ -111,7 +117,7 @@ def build_xml():
     r = R[0] + 1; add([cs(f"A{r}", "Peak gap (GW)"), cn(f"B{r}", round(st["peak_gap_gw"])), cn(f"C{r}", round(sf["peak_gap_gw"]))])
     r = R[0] + 1; add([cs(f"A{r}", "Peak year"), cn(f"B{r}", st["peak_gap_year"]), cn(f"C{r}", sf["peak_gap_year"])])
     r = R[0] + 1; add([cs(f"A{r}", "Demand floor 2042 (GW)"), cn(f"B{r}", round(mt.loc[2042, "demand_gw"])),
-                       cf(f"C{r}", f"{FP}!I{fp_row(2042)}", round(mf.loc[2042, "demand_gw"]))])
+                       cf(f"C{r}", f"ROUND({FP}!I{fp_row(2042)},0)", round(mf.loc[2042, "demand_gw"]))])
     r = R[0] + 1; add([cs(f"A{r}", "Gap closes (overshoot)"), cn(f"B{r}", st["overshoot_year"]), cn(f"C{r}", sf["overshoot_year"])])
     r = R[0] + 1; add([cs(f"A{r}", "Read"), cs(f"B{r}", "timing / peak"), cs(f"C{r}", "duration / higher floor")])
     blank()
@@ -127,7 +133,7 @@ def build_xml():
         r = chart_first + yi
         add([cn(f"A{r}", int(y)),
              cn(f"B{r}", round(float(mt.loc[y, "demand_gw"]), 1)),
-             cf(f"C{r}", f"{FP}!I{fp_row(y)}", round(float(mf.loc[y, "demand_gw"]), 1)),
+             cf(f"C{r}", f"ROUND({FP}!I{fp_row(y)},1)", round(float(mf.loc[y, "demand_gw"]), 1)),
              cn(f"D{r}", round(float(mt.loc[y, "supply_gw"]), 1))])
     blank()
 
