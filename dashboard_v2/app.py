@@ -451,7 +451,7 @@ with st.sidebar.expander("Advanced — supply phase rates"):
 # Token_and_Data_Build_Out_v4_2.xlsx (edit column B there and it flows through here
 # on the next interaction). The sliders then let you flex them without touching Excel.
 _lev = load_macro_levers()
-with st.sidebar.expander("Advanced — FLOPs demand & retirement (ITEM 8 / ITEM 9)"):
+with st.sidebar.expander("Advanced — FLOPs demand, retirement & shortage util (ITEM 8 / 9 / 10)"):
     st.caption("Defaults live in the 'Macro Levers' tab of the Token build-out Excel.")
     use_flops_demand = st.checkbox(
         "Use FLOPs-native demand (ITEM 8)", value=bool(_lev["use_flops_demand"]),
@@ -465,6 +465,19 @@ with st.sidebar.expander("Advanced — FLOPs demand & retirement (ITEM 8 / ITEM 
         help="0 = strict monotonic floor (committed plateau). 1 = floor fully released "
              "(raw-physics demand cliff). Between = old capacity retires at this rate/yr.",
     )
+    util_shortage_ceiling_in = st.slider(
+        "Shortage utilization ceiling (ITEM 10)", 0.0, 0.60, 0.0, 0.05,
+        help="0 = OFF (committed base gives ZERO credit for util rising). >0 = endogenous "
+             "market clearing: in any year with a raw shortage, average fleet utilization is "
+             "crammed to max(base 12%->25% ramp, this ceiling), so the same supply serves more "
+             "demand (power ~ 1/util). ~0.40 is cheap for interactive inference; ~0.50+ needs a "
+             "batch/agentic-heavy mix (latency ~ 1/(1-util)). The biggest bull-for-supply lever.",
+    )
+    # 0 on the slider means OFF (None); the model only crams when a ceiling is set.
+    util_shortage_ceiling = util_shortage_ceiling_in if util_shortage_ceiling_in > 0 else None
+    if util_shortage_ceiling is not None:
+        st.caption(f"⚡ Cramming fleet to {util_shortage_ceiling*100:.0f}% in shortage years — "
+                   "demand haircut by base_util / ceiling.")
     flops_mfu = st.slider(
         "Model FLOPs utilization (MFU)", 0.10, 0.60, float(_lev["flops_mfu"]), 0.05,
         help="Fraction of peak FLOP/s actually achieved. Cancels in the 2025 re-anchor, "
@@ -537,7 +550,7 @@ def run_model(
     use_vintaged, anchor_gw, fleet_life,
     supply_rates,
     use_flops_demand, flops_n_active_b, flops_mix_2025, flops_mix_2040,
-    flops_mfu, capacity_retirement_rate,
+    flops_mfu, capacity_retirement_rate, util_shortage_ceiling,
 ):
     tok = build_token_demand(
         scenario=scenario, ai_users_2025_M=ai_users,
@@ -561,6 +574,7 @@ def run_model(
         flops_mix_2040=flops_mix_2040,
         flops_mfu=flops_mfu,
         capacity_retirement_rate=capacity_retirement_rate,
+        util_shortage_ceiling=util_shortage_ceiling,
     )
     # Layer-level model (granular drilldown)
     if use_vintaged:
@@ -586,7 +600,7 @@ tok_df, macro_df, inf_df, tight_df = run_model(
     doubling, util_2025, tuple(custom_supply.items()),
     use_vintaged, anchor_gw, fleet_life, supply_rates,
     use_flops_demand, flops_n_active_b, flops_mix_2025, flops_mix_2040,
-    flops_mfu, capacity_retirement_rate,
+    flops_mfu, capacity_retirement_rate, util_shortage_ceiling,
 )
 inflection = power_inflection_year(inf_df)
 gap_stats = gap_summary(macro_df)

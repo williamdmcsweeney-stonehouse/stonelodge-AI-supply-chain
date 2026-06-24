@@ -629,6 +629,30 @@ def build_macro_gap(
     # demand "cliff"). This replaces the old binary plateau-vs-cliff switch with a
     # continuous dial — the single biggest swing factor in the 2030s out-years.
     capacity_retirement_rate: float = 0.0,               # ITEM 9: 0.0 = committed base (no retirement)
+    # ----------------------------------------------------------------------------
+    # ITEM 10 (shortage-responsive utilization / endogenous market clearing).
+    # DEFAULT util_shortage_ceiling=None -> OFF -> committed base unchanged.
+    # RATIONALE: the macro headline holds utilization CONSTANT (a constant
+    # utilization cancels in the 2025 re-anchor, same as MFU and the training split),
+    # so the committed base gives ZERO credit for the fleet being run harder when
+    # supply is tight. In a real shortage the system rations by CRAMMING: deferrable/
+    # agentic workloads backfill the diurnal troughs (the 3am idle capacity), pushing
+    # AVERAGE fleet utilization from the committed ~12%->25% base ramp toward a
+    # ceiling. Higher utilization means the SAME built supply serves more demand, so
+    # the POWER needed to serve a given token load falls as 1/utilization. When the
+    # ceiling is set, in any year with a raw (pre-cram) shortage we raise utilization
+    # to max(base_ramp, ceiling) -- the "max of the two" -- and haircut demand by
+    # base_util/shortage_util. The ceiling is bounded by LATENCY (queueing: response
+    # time ~ 1/(1-rho)): ~40% is cheap for interactive inference, ~50%+ needs a
+    # batch/agentic-heavy mix. This is the single biggest bull-case-for-supply /
+    # bear-case-for-the-trade lever. Cramming is applied at the GW level AFTER the
+    # monotonic floor, so it is orthogonal to ITEM 9: the floor says built capacity
+    # is not torn down; ITEM 10 says that capacity is used harder. OFF reproduces the
+    # committed base exactly (demand_gw / gap_gw unchanged; new diagnostic columns
+    # only). util_base_* default to the committed ITEM 6 utilization path.
+    util_shortage_ceiling: float | None = None,          # ITEM 10: None = OFF (committed base)
+    util_base_2025: float = 0.12,                        # ITEM 10: committed base utilization (ITEM 6)
+    util_base_2035: float = 0.25,                        # ITEM 10: committed terminal utilization (ITEM 6)
 ) -> pd.DataFrame:
     """Aggregate demand vs supply gap framework (colleague's Efficiency Overlay).
 
@@ -639,6 +663,8 @@ def build_macro_gap(
       compute_per_token_idx       — 1 / fleet_eff_idx
       net_compute_demand_T        — gross × compute_per_token_idx (monotonic non-decreasing)
       demand_gw                   — net compute demand × (anchor / 2025 gross tokens)
+      demand_gw_uncrammed         — ITEM 10: pre-cram demand (== demand_gw when OFF)
+      util_applied                — ITEM 10: avg fleet utilization used (base ramp unless crammed)
       supply_gw                   — anchor compounded at phase rates
       incremental_supply_gw       — YoY supply addition
       gap_gw                      — demand - supply (positive = undersupplied)
@@ -797,6 +823,22 @@ def build_macro_gap(
         incremental_supply_gw = supply_gw - supply_prev if year > 2025 else 0.0
         supply_prev = supply_gw
 
+        # ITEM 10 (shortage-responsive utilization). DEFAULT util_shortage_ceiling
+        # =None -> OFF -> demand_gw unchanged (committed base, golden hash intact).
+        # When a ceiling is set, in any year with a RAW (pre-cram) shortage we crank
+        # average fleet utilization from the committed base ramp (util_base_2025 ->
+        # util_base_2035, ITEM 6's 12%->25%) up to max(base_ramp, ceiling), and the
+        # power needed to serve the same token demand falls as 1/utilization. The
+        # trigger uses the raw gap so cramming engages only while physically short;
+        # once supply overtakes (raw gap <= 0) utilization relaxes back to the base
+        # ramp. Diagnostics expose both the un-crammed demand and the utilization used.
+        u_base = util_base_2025 + min(1.0, yrs / (2035 - 2025)) * (util_base_2035 - util_base_2025)
+        util_applied = u_base
+        demand_gw_uncrammed = demand_gw
+        if util_shortage_ceiling is not None and (demand_gw - supply_gw) > 0.0:
+            util_applied = max(u_base, util_shortage_ceiling)
+            demand_gw = demand_gw_uncrammed * (u_base / util_applied)
+
         # 5. Gap
         gap_gw = demand_gw - supply_gw
         gap_pct = gap_gw / demand_gw if demand_gw > 0 else 0.0
@@ -817,6 +859,8 @@ def build_macro_gap(
             "avg_n_active_b": avg_n_active_b,    # ITEM 8 diagnostic (0 in token mode)
             "flops_per_day": flops_per_day,      # ITEM 8 diagnostic (0 in token mode)
             "demand_gw": demand_gw,
+            "demand_gw_uncrammed": demand_gw_uncrammed,  # ITEM 10: pre-cram demand (== demand_gw when OFF)
+            "util_applied": util_applied,                # ITEM 10: avg fleet utilization used this year
             "supply_gw": supply_gw,
             "incremental_supply_gw": incremental_supply_gw,
             "gap_gw": gap_gw,
