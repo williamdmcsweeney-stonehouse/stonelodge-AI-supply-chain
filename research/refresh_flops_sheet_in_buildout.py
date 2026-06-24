@@ -55,7 +55,12 @@ EO = "'Efficiency Overlay'"
 ROW0 = 8  # first data row (2025); input cells sit above
 
 esc = lambda s: str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-fmt = lambda v: ("%.10g" % v) if isinstance(v, (int, float)) else str(v)
+# Full-precision cache (native float; numpy->float) so downstream sheets that link
+# here tie out exactly, even through catastrophic cancellation near the gap crossover.
+def fmt(v):
+    if isinstance(v, int) and not isinstance(v, bool):
+        return str(v)
+    return repr(float(v))
 eo_col = lambda k: chr(ord("C") + k)  # 2025->C, 2026->D, ...
 
 
