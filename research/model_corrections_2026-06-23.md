@@ -1,5 +1,29 @@
 # Model corrections, 2026-06-23 — FLOPs-native demand + retirement dial
 
+## DECISION (2026-06-23, PM): committed base stays 332 GW; FLOPs is a DURATION lens
+
+A full FLOPs re-baseline was built and evaluated with the tech-ai-sector-analyst,
+then **declined**. Outcome:
+
+- **Committed base UNCHANGED: 332.4 GW @ 2029 (token basis), hash `fdd0de9ef53c8247`.**
+- **FLOPs is kept as an opt-in DURATION lens**, not the headline. Its message is not
+  "higher peak" — peak gap is actually a touch *lower* (~278 GW @ 2031). It is
+  **higher floor + longer tightness**: demand plateau ~708 GW vs the token base's
+  549 (+29%), and the gap closes ~2036 vs 2034. That is the defensible read for the
+  power/grid/cooling duration thesis.
+- **The agentic re-rate was REJECTED as structurally implausible.** The expert's
+  ~750-850 GW headline depended on lifting the enterprise agent multiplier from the
+  Excel's ~14.7x to ~180x by 2040. But a *blended* multiplier M implies agentic
+  penetration p = (M-1)/(I-1); at intensity I=50x, M=100x needs p=202% and M=180x
+  needs p=365% — impossible (you can't have more than 100% of tasks be agentic).
+  Demand therefore stays on the Excel path (enterprise agent multiplier only;
+  consumers carry none, per the PM's structural view). A proper penetration x
+  intensity demand model is the right future upgrade if revisited.
+
+Everything below documents the FLOPs/retirement machinery that backs the lens.
+
+---
+
 Two opt-in levers added to `build_macro_gap` in `model.py`. **Both default OFF and
 reproduce the committed base case byte-for-byte** (verified: the committed-base
 fingerprint hash `fdd0de9ef53c8247` and the 332.4256 GW @ 2029 peak are unchanged).
