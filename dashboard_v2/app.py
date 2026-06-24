@@ -816,17 +816,17 @@ st.plotly_chart(gap_fig, width='stretch')
 # ── Demand in FLOPs: tokens -> FLOPs -> power (ITEM 8 lens on the Efficiency Overlay)
 # Always computed in FLOPs terms from the current sidebar params, so you can read the
 # pure compute pull on power regardless of which basis drives the chart above.
-with st.expander("Demand in FLOPs · tokens → FLOPs → power (the pure power pull)",
+with st.expander("Duration Lens · tokens → FLOPs → power (higher floor, longer tightness)",
                  expanded=bool(use_flops_demand)):
     st.caption(
-        "Power tracks compute, not token count: a token is **2·N FLOPs** and N varies "
-        "~50x by model, so FLOPs/day is the purer pull on power. "
-        "**FLOPs/day = tokens/day × 2·N(mix)**, then "
+        "The FLOPs lens is the **duration** view, not a higher peak. Power tracks compute, "
+        "not token count: a token is **2·N FLOPs** and N varies ~50x by model, so FLOPs/day "
+        "is the purer pull on power. **FLOPs/day = tokens/day × 2·N(mix)**, then "
         "**power = FLOPs/day ÷ 86,400 ÷ (fleet TFLOP/W × MFU)**, re-anchored so 2025 = "
-        f"{anchor_gw:.0f} GW. Two forces fight token growth here: avg N falls (routing to "
-        "smaller models) and fleet TFLOP/W rises (better chips). Caveat: decode is "
-        "memory-bandwidth-bound and MFU/PUE still sit between FLOPs and facility power, "
-        "so this is the right demand UNIT, not a perfect power identity."
+        f"{anchor_gw:.0f} GW. Because physical efficiency (~19x by 2040) is far below the "
+        "token model's implied ~122x, demand settles at a **higher floor** and the gap "
+        "**closes later** — the duration argument for the power/grid/cooling names. "
+        "Full Bull/Base/Bear engine: 'Operating Model' tab in the Token build-out Excel."
     )
     flops_macro = build_macro_gap(
         tok_df, anchor_gw_2025=anchor_gw, efficiency_doubling_years=doubling,
@@ -835,6 +835,19 @@ with st.expander("Demand in FLOPs · tokens → FLOPs → power (the pure power 
         flops_mix_2025=flops_mix_2025, flops_mix_2040=flops_mix_2040,
         flops_mfu=flops_mfu, capacity_retirement_rate=capacity_retirement_rate,
     )
+    # Token base vs FLOPs lens — the duration comparison (the locked 2026-06-23 decision).
+    _tok_macro = build_macro_gap(
+        tok_df, anchor_gw_2025=anchor_gw, efficiency_doubling_years=doubling,
+        fleet_lag_years=fleet_life, supply_phase_rates=supply_rates)
+    _ts, _fs = gap_summary(_tok_macro), gap_summary(flops_macro)
+    d1, d2, d3 = st.columns(3)
+    d1.metric("Peak gap", f"{_fs['peak_gap_gw']:.0f} GW @ {_fs['peak_gap_year']}",
+              delta=f"token base {_ts['peak_gap_gw']:.0f} @ {_ts['peak_gap_year']}", delta_color="off")
+    d2.metric("Demand floor 2042", f"{flops_macro.loc[2042,'demand_gw']:.0f} GW",
+              delta=f"+{flops_macro.loc[2042,'demand_gw']-_tok_macro.loc[2042,'demand_gw']:.0f} vs token base",
+              delta_color="off")
+    d3.metric("Gap closes", str(_fs['overshoot_year'] or "post-2042"),
+              delta=f"token base {_ts['overshoot_year'] or 'post-2042'}", delta_color="off")
     conv = pd.DataFrame({
         "Year": YEARS,
         "Tokens/day (T)": [flops_macro.loc[y, "gross_tokens_T"] for y in YEARS],
