@@ -32,7 +32,7 @@ sys.path.insert(0, str(_REPO))
 import model  # noqa: E402
 
 XLSX = _REPO / "Token_and_Data_Build_Out_v4_2.xlsx"
-GOLDEN = "c2ce9ee43f5f7c16"
+GOLDEN = "5aba31680bd17859"
 RENAMES = {
     "Summary": "ARCHIVE - Summary (empty)",
     "Robo Bull": "ARCHIVE - Robo Bull (legacy)",

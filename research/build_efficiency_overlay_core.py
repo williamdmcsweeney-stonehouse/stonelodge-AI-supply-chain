@@ -47,7 +47,7 @@ import model  # noqa: E402
 
 XLSX = _REPO / "Token_and_Data_Build_Out_v4_2.xlsx"
 SHEET = "Efficiency Overlay"
-GOLDEN = "c2ce9ee43f5f7c16"
+GOLDEN = "5aba31680bd17859"
 YEARS = list(model.YEARS)
 N = len(YEARS)
 ANCHOR = 70.0
@@ -59,7 +59,7 @@ OVERRIDES = {}                    # per-year util overrides preserved from the w
 
 # Scenario presets (Bull / Base / Bear / Central). Base == model.py committed defaults.
 SCEN = {                          #         Bull    Base    Bear   Central
-    "doubling_years":   (3.0,   2.0,   1.40,  2.0),    # efficiency doubling (yrs); slower = more power  [owner pref 2.0]
+    "doubling_years":   (3.0,   2.5,   1.40,  2.5),    # PURE hardware doubling (yrs); algo 10%/yr separate (ALGO const)  [owner 2026-07-03: Base/Central 2.0->2.5]
     "fleet_lag_years":  (8,     5,     4,     5),       # fleet refresh lag (yrs)
     "supply_scale":     (0.85,  1.0,   1.15,  1.0),     # x phase rates
     "retire_rate":      (0.0,   0.0,   0.08,  0.0),     # ITEM 9 floor decay /yr

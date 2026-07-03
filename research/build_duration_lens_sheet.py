@@ -26,7 +26,7 @@ import model  # noqa: E402
 
 XLSX = _REPO / "Token_and_Data_Build_Out_v4_2.xlsx"
 SHEET = "Duration Lens"
-GOLDEN = "c2ce9ee43f5f7c16"
+GOLDEN = "5aba31680bd17859"
 WS_CT = "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"
 WS_RT = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet"
 FP = "'FLOPs to Power'"      # the live-mechanics sheet; col I = power_GW_floored, row 8 = 2025

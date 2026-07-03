@@ -36,7 +36,7 @@ import model  # noqa: E402
 import research.build_efficiency_overlay_core as core  # noqa: E402
 
 XLSX = _REPO / "Token_and_Data_Build_Out_v4_2.xlsx"
-GOLDEN = "c2ce9ee43f5f7c16"
+GOLDEN = "5aba31680bd17859"
 SHEET = "Utilization Effect"
 OV = "Efficiency Overlay"
 YEARS = core.YEARS

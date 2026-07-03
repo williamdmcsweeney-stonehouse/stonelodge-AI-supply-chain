@@ -315,15 +315,15 @@ NEW_LAYERS = {
 PRESETS = {
     "Stonehouse Base": {
         # 2026-04-29 audit: ai_users 1100→1400 (H2-25 aggregate weekly AI users
-        # — OpenAI 800M + Gemini + Meta AI + Claude + Copilot). doubling back to 2.0
-        # (owner decision 2026-06-25; the 1.85 Epoch revision was reverted). util
-        # 6.7%→9.0% (H2-25 ramp from agentic + ChatGPT 800M weekly).
+        # — OpenAI 800M + Gemini + Meta AI + Claude + Copilot). doubling 2.5 = PURE
+        # hardware perf/watt (owner 2026-07-03, was 2.0 which double-counted algo);
+        # algorithmic 10%/yr is separate in model.py. util 6.7%→9.0% (H2-25 ramp).
         "scenario": "Base", "ai_users": 1400, "agent_mult": 1.0, "humanoid": 1.0,
-        "enterprise": 1.0, "doubling": 2.0, "util_2025": 0.090,
+        "enterprise": 1.0, "doubling": 2.5, "util_2025": 0.090,
     },
     "Robotics Bull": {
         "scenario": "Robo Bull", "ai_users": 1600, "agent_mult": 1.4, "humanoid": 2.5,
-        "enterprise": 1.3, "doubling": 2.0, "util_2025": 0.105,
+        "enterprise": 1.3, "doubling": 2.5, "util_2025": 0.105,
     },
     "Adoption Bear": {
         "scenario": "Bear", "ai_users": 1000, "agent_mult": 0.7, "humanoid": 0.5,
@@ -770,8 +770,8 @@ with st.expander(
                           delta=f"{(humanoid-1)*40:+.0f}% to robotics tokens" if humanoid != 1.0 else "Default (dampened)", delta_color="off")
     slider_cols[3].metric("Enterprise+Retail scale", f"{enterprise:.2f}×",
                           delta=f"{(enterprise-1)*100:+.0f}% to consumer+enterprise" if enterprise != 1.0 else "Default", delta_color="off")
-    slider_cols[4].metric("Efficiency doubling", f"{doubling:.2f} yr",
-                          delta="faster GPU efficiency = lower demand" if doubling < 2.0 else "slower = higher demand" if doubling > 2.0 else "Base (owner 2.0)",
+    slider_cols[4].metric("HW efficiency doubling", f"{doubling:.2f} yr",
+                          delta="faster GPU efficiency = lower demand" if doubling < 2.5 else "slower = higher demand" if doubling > 2.5 else "Base (pure HW 2.5) + 10%/yr algo",
                           delta_color="off")
 
     st.caption(

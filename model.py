@@ -20,10 +20,13 @@ locking ONE committed base case so the headline numbers are self-consistent:
                                        Gemini + Meta AI + Claude consumer +
                                        Copilot embeds; better-sourced than 1100)
     gross tokens 2025      = 134.9 T/day  (derived from the 1400-user anchor)
-    efficiency doubling    = 2.0 yr   (HARDWARE; owner 2026-06-25, was 1.85 Epoch)
+    efficiency doubling    = 2.5 yr   (PURE hardware perf/watt; owner 2026-07-03,
+                                       was 2.0 which embedded some chip-architecture
+                                       gains and risked double-counting the algo term)
     algorithmic efficiency = 10 %/yr  (owner 2026-07-03; compounding, un-lagged;
-                                       on top of the hardware doubling; token &
-                                       FLOPs bases tie out on this same rate)
+                                       model/software gains ON TOP of hardware;
+                                       effective combined ~1.86yr; token & FLOPs
+                                       bases tie out on this same rate)
     fleet replacement lag  = 5 yr     (was 6; lowered per judgment-call item 5,
                                        true fleet-weighted refresh is 4-5yr)
     2025 DC power anchor   = 70 GW    (mid-consensus: JLL/C&W/GS/McKinsey)
@@ -500,20 +503,20 @@ def build_token_demand(
 #      Claude consumer + Copilot embeds; up from ~1.1B 2024 baseline).
 #
 # Macro gap scenarios (refreshed):
-#   Base (empirical):          doubling=2.0, lag=5, algo=10%/yr, peak gap ~200 @ 2028
+#   Base (empirical):          doubling=2.5 (pure HW) + algo 10%/yr, peak gap ~266 @ 2029
 #   Bear (fast efficiency):    doubling=1.5,  lag=4, gap closes ~2032
 #   Bull (physics slowdown):   doubling=3.0,  lag=8, gap never closes through 2042
 #   Infrastructure-only:       supply phase rates 0.15/0.20/0.20/0.12 (slower physical build)
 
 MACRO_SCENARIOS = {
     "Base — empirical (Stonehouse)": {
-        "doubling": 2.0, "lag": 5,                        # owner decision 2026-06-25 (was 1.85)
+        "doubling": 2.5, "lag": 5,                        # PURE hardware (owner 2026-07-03, was 2.0); algo 10%/yr is separate
         "supply_rates": (0.22, 0.30, 0.25, 0.15),
-        "note": "Committed base case (doubling 2.0, owner 2026-06-25; algorithmic efficiency "
-                "10%/yr, owner 2026-07-03): users 1400, lag 5, anchor 70, util 12/25. Peak gap "
-                "~200 GW @ 2028; demand asymptotes ~2029 at ~377 GW; cumulative power+grid capex "
-                "~$8.4T to 2042 (supply-driven, unchanged). Gap narrows vs hardware-only (620) but "
-                "persists; token & FLOPs bases tie out exactly.",
+        "note": "Committed base case (PURE hardware doubling 2.5yr + algorithmic 10%/yr, both "
+                "owner 2026-07-03; effective ~1.86yr combined, no double-count): users 1400, lag 5, "
+                "anchor 70, util 12/25. Peak gap ~266 GW @ 2029; demand asymptotes ~2030 at ~478 GW; "
+                "cumulative power+grid capex ~$8.4T to 2042 (supply-driven, unchanged). Gap narrows vs "
+                "hardware-only (620) but persists; token & FLOPs bases tie out exactly.",
     },
     "Bear — fast efficiency": {
         "doubling": 1.5, "lag": 4,
@@ -562,7 +565,7 @@ def _avg_n_active_b(
 def build_macro_gap(
     token_df: pd.DataFrame,
     anchor_gw_2025: float = 70.0,                        # JLL 2026 + C&W 2024 + GS Feb 2025 mid [4-6]
-    efficiency_doubling_years: float = 2.0,              # owner decision 2026-06-25 (was 1.85); HARDWARE-only
+    efficiency_doubling_years: float = 2.5,              # PURE hardware perf/watt (owner 2026-07-03, was 2.0); algorithmic is separate below
     fleet_lag_years: int = 5,                            # ITEM 5: 6 -> 5 (true fleet-weighted refresh 4-5yr)
     supply_phase_rates: tuple = (0.22, 0.30, 0.25, 0.15),  # 26-27, 28-30, 31-35, 36-42
     cost_shell_per_mw_M: float = 11.3,                   # JLL [9]
