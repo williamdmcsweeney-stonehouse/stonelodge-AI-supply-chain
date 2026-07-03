@@ -20,7 +20,10 @@ locking ONE committed base case so the headline numbers are self-consistent:
                                        Gemini + Meta AI + Claude consumer +
                                        Copilot embeds; better-sourced than 1100)
     gross tokens 2025      = 134.9 T/day  (derived from the 1400-user anchor)
-    efficiency doubling    = 1.85 yr  (hardware-only; Epoch AI Jun-2025 update)
+    efficiency doubling    = 2.0 yr   (HARDWARE; owner 2026-06-25, was 1.85 Epoch)
+    algorithmic efficiency = 10 %/yr  (owner 2026-07-03; compounding, un-lagged;
+                                       on top of the hardware doubling; token &
+                                       FLOPs bases tie out on this same rate)
     fleet replacement lag  = 5 yr     (was 6; lowered per judgment-call item 5,
                                        true fleet-weighted refresh is 4-5yr)
     2025 DC power anchor   = 70 GW    (mid-consensus: JLL/C&W/GS/McKinsey)
@@ -434,6 +437,19 @@ def build_token_demand(
         except Exception:
             robotics_total = 0.0
 
+        # ITEM 11 (agent/human utilization split): expose the agent multiplier
+        # (Base!r42, 2.5x in 2025 -> ~14.7x in 2040) so build_macro_gap can split
+        # enterprise demand into its human (1x knowledge-worker) and agent (the rest)
+        # portions. The agent_multiplier_scale slider rescales the agent ramp; the
+        # human base (enterprise / effective_mult) stays invariant to it, since the
+        # slider scales BOTH the displayed enterprise number and this multiplier in
+        # lockstep. Floored at 1.0 (a multiplier < 1 has no meaning for the split).
+        try:
+            agent_multiplier = float(df.loc["Agent Multiplier", year]) * agent_multiplier_scale
+        except Exception:
+            agent_multiplier = 1.0
+        agent_multiplier = max(1.0, agent_multiplier)
+
         t = min(1.0, (year - 2025) / (2040 - 2025))
         edge_frac = edge_fraction_2025 + t * (edge_fraction_2040 - edge_fraction_2025)
         robotics_cloud = robotics_total * (1.0 - edge_frac)
@@ -449,6 +465,7 @@ def build_token_demand(
             "robotics_edge_T": max(0.0, robotics_edge),
             "total_cloud_T": max(0.0, total_cloud),
             "total_T": max(0.0, retail + enterprise + robotics_total),
+            "agent_multiplier": agent_multiplier,   # ITEM 11: agent/human util split
         })
 
     return pd.DataFrame(rows).set_index("year")
@@ -483,20 +500,20 @@ def build_token_demand(
 #      Claude consumer + Copilot embeds; up from ~1.1B 2024 baseline).
 #
 # Macro gap scenarios (refreshed):
-#   Base (empirical):          doubling=1.85, lag=6, gap persists through 2034+
+#   Base (empirical):          doubling=2.0, lag=5, algo=10%/yr, peak gap ~200 @ 2028
 #   Bear (fast efficiency):    doubling=1.5,  lag=4, gap closes ~2032
 #   Bull (physics slowdown):   doubling=3.0,  lag=8, gap never closes through 2042
 #   Infrastructure-only:       supply phase rates 0.15/0.20/0.20/0.12 (slower physical build)
 
 MACRO_SCENARIOS = {
     "Base — empirical (Stonehouse)": {
-        "doubling": 1.85, "lag": 5,                       # ITEM 5: lag 6 -> 5
+        "doubling": 2.0, "lag": 5,                        # owner decision 2026-06-25 (was 1.85)
         "supply_rates": (0.22, 0.30, 0.25, 0.15),
-        "note": "Committed base case (locked 2026-06-18): users 1400, doubling 1.85, "
-                "lag 5, anchor 70, util 12/25. Peak gap ~332 GW @ 2029; balance/overshoot "
-                "2034; cumulative power+grid capex ~$8.4T to 2042. Gap persists through "
-                "2033; no air pocket for power names. Triangulates 2030 supply 229 GW "
-                "vs consensus 200 GW.",
+        "note": "Committed base case (doubling 2.0, owner 2026-06-25; algorithmic efficiency "
+                "10%/yr, owner 2026-07-03): users 1400, lag 5, anchor 70, util 12/25. Peak gap "
+                "~200 GW @ 2028; demand asymptotes ~2029 at ~377 GW; cumulative power+grid capex "
+                "~$8.4T to 2042 (supply-driven, unchanged). Gap narrows vs hardware-only (620) but "
+                "persists; token & FLOPs bases tie out exactly.",
     },
     "Bear — fast efficiency": {
         "doubling": 1.5, "lag": 4,
@@ -545,7 +562,7 @@ def _avg_n_active_b(
 def build_macro_gap(
     token_df: pd.DataFrame,
     anchor_gw_2025: float = 70.0,                        # JLL 2026 + C&W 2024 + GS Feb 2025 mid [4-6]
-    efficiency_doubling_years: float = 1.85,             # Epoch AI Jun 2025 update [1] (HARDWARE-only)
+    efficiency_doubling_years: float = 2.0,              # owner decision 2026-06-25 (was 1.85); HARDWARE-only
     fleet_lag_years: int = 5,                            # ITEM 5: 6 -> 5 (true fleet-weighted refresh 4-5yr)
     supply_phase_rates: tuple = (0.22, 0.30, 0.25, 0.15),  # 26-27, 28-30, 31-35, 36-42
     cost_shell_per_mw_M: float = 11.3,                   # JLL [9]
@@ -563,6 +580,20 @@ def build_macro_gap(
     # term below; nothing else changes, so OFF reproduces the committed base case.
     include_algorithmic_efficiency: bool = False,        # ITEM 2: OFF = hardware-only base case
     combined_doubling_years: float = 1.25,               # ITEM 2: hardware+algorithmic blended (1.1-1.4yr)
+    # ----------------------------------------------------------------------------
+    # ITEM 2b (CANONICAL algorithmic efficiency). Distinct from the ITEM 2 flag above
+    # (which REPLACES the hardware doubling). This is an ALWAYS-ON multiplicative
+    # efficiency layered ON TOP of the hardware fleet index, representing software/model
+    # gains (distillation, MoE, quantization, speculative decoding, better training) that
+    # improve tokens-per-FLOP. Unlike hardware, these deploy fleet-wide IMMEDIATELY (no
+    # hardware-refresh lag), so they multiply the fleet index by (1+rate)^years. Owner
+    # decision 2026-07-03: 0.10 (10%/yr) — a defensible "banked" rate, well below Epoch's
+    # ~3x/yr fixed-capability headline (the capability treadmill spends most of that on
+    # better models, not cheaper ones). In the FLOPs basis this SAME rate is expressed as
+    # routing to smaller models (avg N_active falls at this rate), so token and FLOPs bases
+    # tie out exactly after the 2025 re-anchor. Set 0.0 to recover the pure hardware-only
+    # curve.
+    algorithmic_efficiency_per_year: float = 0.10,       # ITEM 2b: canonical algorithmic efficiency (owner 2026-07-03)
     # ----------------------------------------------------------------------------
     # ITEM 4 (fix the inert enterprise_intensity_scale slider). In build_macro_gap
     # the only demand input is token_df["total_T"], which is ALREADY scaled by the
@@ -657,6 +688,31 @@ def build_macro_gap(
     util_base_2035: float = 0.25,                        # ITEM 10: committed terminal utilization (ITEM 6)
     util_struct_start_year: int = 2030,                  # ITEM 10: structural util ramp start year
     util_struct_full_year: int = 2040,                   # ITEM 10: year structural util reaches ceiling
+    # ----------------------------------------------------------------------------
+    # ITEM 11 (agent/human-weighted utilization — supersedes ITEM 10's exogenous
+    # ramp). DEFAULT enable_util_split=False -> OFF -> committed base unchanged
+    # (golden hash intact). RATIONALE: utilization is not a free dial — it is set by
+    # the WORKLOAD MIX. Interactive/human traffic must run at low utilization (~45%)
+    # so latency stays low and the experience is good (queueing: response time grows
+    # as 1/(1-rho), so the tail blows up past ~50%). Agentic traffic tolerates a
+    # little latency and batches well, so it runs hot (~75%). Fleet utilization is
+    # therefore the DEMAND-WEIGHTED AVERAGE of the two regimes:
+    #     util_fleet = agent_share*util_agent + (1-agent_share)*util_human
+    # where agent_share = (robotics + agent-driven enterprise) / total demand, and the
+    # agent-driven enterprise = enterprise*(1 - 1/agent_multiplier) (the portion the
+    # agent multiplier adds on top of the 1x human knowledge-worker base). As the world
+    # goes agentic, agent_share climbs (the agent multiplier ramps 2.5x->~15x), so the
+    # blend drifts UP toward the agent regime automatically. This COUPLES utilization to
+    # the agentic ramp by construction: the same multiplier that inflates demand also
+    # lifts utilization, so you can no longer credit the agentic demand wave without
+    # crediting the batching absorption it enables. Realized power = demand *
+    # util_fleet(2025)/util_fleet(year) (2025 re-anchored, so the haircut is 1.0 at the
+    # anchor and DEEPENS as the mix shifts agentic). OFF reproduces the committed base.
+    enable_util_split: bool = False,                     # ITEM 11: OFF = committed base (no util credit)
+    util_human: float = 0.45,                            # ITEM 11: interactive/human utilization ceiling
+    util_agent: float = 0.75,                            # ITEM 11: agentic/batch utilization ceiling
+    util_start: float = 0.0,                             # ITEM 12: 2025 ACTUAL fleet utilization (duty cycle).
+    util_maturity_year: int = 2030,                      # ITEM 12: year actual util reaches the ceiling (smoothstep)
 ) -> pd.DataFrame:
     """Aggregate demand vs supply gap framework (colleague's Efficiency Overlay).
 
@@ -707,22 +763,68 @@ def build_macro_gap(
     else:
         basis_2025 = float(token_df.loc[2025, "total_T"])
 
+    # ITEM 11: agent share of demand for a given year, from the workload mix.
+    # agent demand = robotics (fully autonomous) + the agent-driven slice of
+    # enterprise (everything the agent multiplier adds above the 1x human base).
+    def _agent_share(yr: int) -> float:
+        retail_y = float(token_df.loc[yr, "retail_T"])
+        ent_y = float(token_df.loc[yr, "enterprise_T"])
+        robo_y = float(token_df.loc[yr, "robotics_cloud_T"]) + float(token_df.loc[yr, "robotics_edge_T"])
+        mult_y = float(token_df.loc[yr, "agent_multiplier"]) if "agent_multiplier" in token_df.columns else 1.0
+        total_y = retail_y + ent_y + robo_y
+        if total_y <= 0:
+            return 0.0
+        human_ent = ent_y / mult_y if mult_y > 0 else ent_y
+        agent_ent = max(0.0, ent_y - human_ent)
+        return (robo_y + agent_ent) / total_y
+
+    # ITEM 11/12: fleet utilization re-anchored to 2025 (the haircut is 1.0 at the anchor
+    # and deepens as utilization rises). _ceiling() is the ITEM 11 agent/human blend — the
+    # ACHIEVABLE max given the workload mix. ITEM 12 (maturation) recognises the fleet does
+    # NOT run at that ceiling today: it runs at a ~10% duty cycle (idle reserve, failover,
+    # diurnal troughs, immature batching) and MATURES up toward the ceiling by
+    # util_maturity_year as capacity scarcity forces higher loading. util_start==0 disables
+    # maturation (legacy ITEM 11: ceiling blend used directly).
+    def _ceiling(yr: int) -> float:
+        a = _agent_share(yr)
+        return a * util_agent + (1.0 - a) * util_human
+
+    def _maturity(yr: int) -> float:
+        if util_maturity_year <= 2025:
+            return 1.0
+        t = min(1.0, max(0.0, (yr - 2025) / (util_maturity_year - 2025)))
+        return t * t * (3.0 - 2.0 * t)                   # smoothstep S-curve (0 at 2025, 1 at maturity)
+
+    def _util_fleet(yr: int) -> float:
+        ceil = _ceiling(yr)
+        if util_start > 0.0:
+            return util_start + (ceil - util_start) * _maturity(yr)
+        return ceil
+
+    util_ref = _util_fleet(2025) if enable_util_split else None
+
     for year in YEARS:
         yrs = year - 2025
 
-        # 1. Frontier efficiency (newest GPU generation).
+        # 1. Frontier efficiency (newest GPU generation). HARDWARE only.
         # ITEM 2: uses effective_doubling_years (hardware-only by default; combined
         # hardware+algorithmic when include_algorithmic_efficiency=True).
         new_eff_idx = 2.0 ** (yrs / effective_doubling_years)
 
-        # 2. Fleet-weighted efficiency: each year, 1/lag of fleet replaced by frontier
+        # 2. Fleet-weighted HARDWARE efficiency: each year, 1/lag of fleet replaced by frontier
         if year == 2025:
             fleet_eff_idx = 1.0
         else:
             fleet_eff_idx = (1 - 1.0 / fleet_lag_years) * fleet_eff_prev + (1.0 / fleet_lag_years) * new_eff_idx
         fleet_eff_prev = fleet_eff_idx
 
-        compute_per_token_idx = 1.0 / fleet_eff_idx
+        # 2b. Algorithmic efficiency (ITEM 2b, canonical): software/model gains that deploy
+        # fleet-wide IMMEDIATELY (no hardware-refresh lag), multiplying the hardware fleet
+        # index. Effective per-token efficiency = hardware x algorithmic. In the FLOPs basis
+        # the same algo_factor drives routing to smaller models, so the two bases tie out.
+        algo_factor = (1.0 + algorithmic_efficiency_per_year) ** yrs
+        effective_eff_idx = fleet_eff_idx * algo_factor
+        compute_per_token_idx = 1.0 / effective_eff_idx
 
         # 3. Demand
         # ITEM 4 (fix inert enterprise_intensity_scale): apply an explicit gross
@@ -744,11 +846,22 @@ def build_macro_gap(
         # and the 86400 constant cancel in the 2025 re-anchor, so they don't move the
         # curve; they are kept for physical transparency. OFF reproduces base.
         if use_flops_demand:
-            avg_n_active_b = _avg_n_active_b(
-                year, flops_n_active_b, flops_mix_2025, flops_mix_2040)
+            # TIE-OUT (2026-07-03): the FLOPs basis now shares the token basis's two
+            # efficiency drivers instead of a decoupled hardcoded ramp.
+            #   hardware  — TFLOP/W tied to the SAME fleet hardware index (2025 anchor x
+            #               fleet_eff_idx), so it now responds to efficiency_doubling_years
+            #               and the fleet lag exactly like the token basis (was: hardcoded
+            #               tflop_per_w_for_year(year), which ignored the doubling lever).
+            #   algorithmic — avg N_active falls at algorithmic_efficiency_per_year (routing
+            #               toward smaller models) = the token basis's algo_factor.
+            # Both tied => FLOPs net demand is proportional to token net demand and the
+            # constant cancels in the 2025 re-anchor, so the two bases tie out exactly.
+            n0 = _avg_n_active_b(2025, flops_n_active_b, flops_mix_2025, flops_mix_2040)
+            avg_n_active_b = n0 / algo_factor
             flops_per_day = gross_tokens_T * 1e12 * 2.0 * avg_n_active_b * 1e9
+            tflop_eff = tflop_per_w_for_year(2025) * fleet_eff_idx
             net_compute_demand_raw_T = flops_per_day / 86_400.0 / (
-                tflop_per_w_for_year(year) * 1e12 * flops_mfu)
+                tflop_eff * 1e12 * flops_mfu)
         else:
             avg_n_active_b = 0.0
             flops_per_day = 0.0
@@ -834,12 +947,25 @@ def build_macro_gap(
         # base_util / util_struct, deepening the haircut as utilization climbs.
         u_base = util_base_2025 + min(1.0, yrs / (2035 - 2025)) * (util_base_2035 - util_base_2025)
         util_applied = u_base
+        agent_share = 0.0
         demand_gw_uncrammed = demand_gw
-        if util_struct_ceiling is not None and util_struct_ceiling > util_base_2035:
-            # ITEM 10 STRUCTURAL: utilization ramps from the base ramp (until the start
-            # year) up to util_struct_ceiling by util_struct_full_year, applied ALWAYS.
-            # Monotonic by construction (no ratchet needed). Realized power is the demand
-            # haircut by base_util/util_struct, which deepens as utilization climbs.
+        if enable_util_split:
+            # ITEM 11 (agent/human-weighted utilization — preferred mechanic). Fleet
+            # utilization is the demand-weighted blend of the human (~45%) and agent
+            # (~75%) regimes; it rises ENDOGENOUSLY as the agent multiplier ramps. Realized
+            # power = demand * util_fleet(2025)/util_fleet(year), so the haircut is 1.0 at
+            # the 2025 anchor and deepens as the mix shifts agentic. Couples utilization to
+            # the agentic ramp by construction (same multiplier drives demand AND util).
+            agent_share = _agent_share(year)
+            util_fleet = _util_fleet(year)          # ITEM 12: matures from util_start toward the ceiling
+            util_applied = util_fleet
+            if util_fleet > 0:
+                demand_gw = demand_gw_uncrammed * (util_ref / util_fleet)
+        elif util_struct_ceiling is not None and util_struct_ceiling > util_base_2035:
+            # ITEM 10 STRUCTURAL (legacy exogenous ramp, kept for backward compat).
+            # Utilization ramps from the base ramp (until the start year) up to
+            # util_struct_ceiling by util_struct_full_year, applied ALWAYS. Monotonic by
+            # construction. Realized power = demand haircut by base_util/util_struct.
             if year > util_struct_start_year:
                 ub_s = util_base_2025 + min(1.0, (util_struct_start_year - 2025) / (2035 - 2025)) * (
                     util_base_2035 - util_base_2025)
@@ -867,8 +993,9 @@ def build_macro_gap(
             "avg_n_active_b": avg_n_active_b,    # ITEM 8 diagnostic (0 in token mode)
             "flops_per_day": flops_per_day,      # ITEM 8 diagnostic (0 in token mode)
             "demand_gw": demand_gw,
-            "demand_gw_uncrammed": demand_gw_uncrammed,  # ITEM 10: raw demand pull pre-haircut (== demand_gw when OFF)
-            "util_applied": util_applied,                # ITEM 10: structural fleet utilization used this year
+            "demand_gw_uncrammed": demand_gw_uncrammed,  # ITEM 10/11: raw demand pull pre-haircut (== demand_gw when OFF)
+            "util_applied": util_applied,                # ITEM 10/11: fleet utilization used this year
+            "agent_share": agent_share,                  # ITEM 11: agent share of demand (0 unless split ON)
             "supply_gw": supply_gw,
             "incremental_supply_gw": incremental_supply_gw,
             "gap_gw": gap_gw,

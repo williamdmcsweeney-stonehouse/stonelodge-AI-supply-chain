@@ -315,15 +315,15 @@ NEW_LAYERS = {
 PRESETS = {
     "Stonehouse Base": {
         # 2026-04-29 audit: ai_users 1100→1400 (H2-25 aggregate weekly AI users
-        # — OpenAI 800M + Gemini + Meta AI + Claude + Copilot); doubling 2.0→1.85
-        # (Epoch AI Jun 2025 update); util 6.7%→9.0% (H2-25 ramp from agentic +
-        # ChatGPT 800M weekly). Triangulates: 2030 supply 229 GW vs JLL/McK 200.
+        # — OpenAI 800M + Gemini + Meta AI + Claude + Copilot). doubling back to 2.0
+        # (owner decision 2026-06-25; the 1.85 Epoch revision was reverted). util
+        # 6.7%→9.0% (H2-25 ramp from agentic + ChatGPT 800M weekly).
         "scenario": "Base", "ai_users": 1400, "agent_mult": 1.0, "humanoid": 1.0,
-        "enterprise": 1.0, "doubling": 1.85, "util_2025": 0.090,
+        "enterprise": 1.0, "doubling": 2.0, "util_2025": 0.090,
     },
     "Robotics Bull": {
         "scenario": "Robo Bull", "ai_users": 1600, "agent_mult": 1.4, "humanoid": 2.5,
-        "enterprise": 1.3, "doubling": 1.85, "util_2025": 0.105,
+        "enterprise": 1.3, "doubling": 2.0, "util_2025": 0.105,
     },
     "Adoption Bear": {
         "scenario": "Bear", "ai_users": 1000, "agent_mult": 0.7, "humanoid": 0.5,
@@ -483,6 +483,38 @@ with st.sidebar.expander("Advanced — FLOPs demand, retirement & shortage util 
         st.caption(f"⚡ Structural util ramps base→{util_struct_ceiling*100:.0f}% over "
                    f"{int(util_struct_start_year)}–{int(util_struct_full_year)} (always-on); "
                    "demand haircut by base_util / util_struct.")
+    enable_util_split = st.checkbox(
+        "Agent/human utilization split (ITEM 11)", value=False,
+        help="Preferred utilization mechanic — supersedes ITEM 10's exogenous ramp. "
+             "Utilization is set by the WORKLOAD MIX, not a free dial: human/interactive "
+             "traffic runs cool (util_human) for low latency; agentic traffic batches and "
+             "runs hot (util_agent). Fleet util = demand-weighted blend, where agent_share "
+             "= (robotics + enterprise*(1-1/agent_mult)) / total. As agentic ramps, the "
+             "blend rises toward util_agent AUTOMATICALLY, so the same multiplier that "
+             "inflates demand also lifts utilization (coupled by construction). Realized "
+             "power = demand * util(2025)/util(year). Overrides ITEM 10 when ON.",
+    )
+    cH, cA = st.columns(2)
+    util_human = cH.slider("  └ util_human", 0.20, 0.60, 0.45, 0.05, key="uhuman",
+                           help="Interactive/human ceiling — latency-bound (queueing: response ~ 1/(1-util)).")
+    util_agent = cA.slider("  └ util_agent", 0.50, 0.90, 0.75, 0.05, key="uagent",
+                           help="Agentic/batch ceiling — tolerates latency, packs well.")
+    cS, cM = st.columns(2)
+    util_start = cS.slider("  └ util_start (ITEM 12)", 0.0, 0.45, 0.10, 0.01, key="u_start_i12",
+                           help="2025 ACTUAL fleet utilization (duty cycle ~10-15% today). 0 = no maturation "
+                                "(util held at the ceiling blend — legacy ITEM 11). >0 = util MATURES from this "
+                                "real low base up toward the ceiling, so the haircut has a real runway.")
+    util_maturity_year = cM.slider("  └ matures by (year)", 2027, 2042, 2030, 1, key="u_mat_i12",
+                                   help="Year util reaches the ceiling (smoothstep). Earlier = faster maturation "
+                                        "= more near-term absorption (capacity scarcity forces higher loading).")
+    if enable_util_split and util_start > 0:
+        st.caption(f"⚡ ITEM 12: util MATURES {util_start:.0%} (2025) → ceiling (~56-66%) by {int(util_maturity_year)} "
+                   "(smoothstep). Realized power = demand × util(2025)/util(year) — a 10%→~66% climb absorbs ~85% "
+                   "at maturity. Lower the ceiling (util_agent) or slow the maturity to temper.")
+    elif enable_util_split:
+        st.caption(f"⚡ Fleet util = agent_share·{util_agent:.0%} + (1-agent_share)·{util_human:.0%}, "
+                   "re-anchored to 2025 (ITEM 11, no maturation — util_start=0). Agent share rises with the agent "
+                   "multiplier, so the blend deepens endogenously. Set util_start>0 to add ITEM 12 maturation.")
     flops_mfu = st.slider(
         "Model FLOPs utilization (MFU)", 0.10, 0.60, float(_lev["flops_mfu"]), 0.05,
         help="Fraction of peak FLOP/s actually achieved. Cancels in the 2025 re-anchor, "
@@ -557,6 +589,8 @@ def run_model(
     use_flops_demand, flops_n_active_b, flops_mix_2025, flops_mix_2040,
     flops_mfu, capacity_retirement_rate, util_struct_ceiling,
     util_struct_start_year, util_struct_full_year,
+    enable_util_split, util_human, util_agent,
+    util_start, util_maturity_year,
 ):
     tok = build_token_demand(
         scenario=scenario, ai_users_2025_M=ai_users,
@@ -583,6 +617,11 @@ def run_model(
         util_struct_ceiling=util_struct_ceiling,
         util_struct_start_year=int(util_struct_start_year),
         util_struct_full_year=int(util_struct_full_year),
+        enable_util_split=enable_util_split,
+        util_human=util_human,
+        util_agent=util_agent,
+        util_start=util_start,
+        util_maturity_year=int(util_maturity_year),
     )
     # Layer-level model (granular drilldown)
     if use_vintaged:
@@ -610,6 +649,8 @@ tok_df, macro_df, inf_df, tight_df = run_model(
     use_flops_demand, flops_n_active_b, flops_mix_2025, flops_mix_2040,
     flops_mfu, capacity_retirement_rate, util_struct_ceiling,
     util_struct_start_year, util_struct_full_year,
+    enable_util_split, util_human, util_agent,
+    util_start, util_maturity_year,
 )
 inflection = power_inflection_year(inf_df)
 gap_stats = gap_summary(macro_df)
@@ -730,14 +771,17 @@ with st.expander(
     slider_cols[3].metric("Enterprise+Retail scale", f"{enterprise:.2f}×",
                           delta=f"{(enterprise-1)*100:+.0f}% to consumer+enterprise" if enterprise != 1.0 else "Default", delta_color="off")
     slider_cols[4].metric("Efficiency doubling", f"{doubling:.2f} yr",
-                          delta="faster GPU efficiency = lower demand" if doubling < 1.85 else "slower = higher demand" if doubling > 1.85 else "Base (Epoch AI Jun-25)",
+                          delta="faster GPU efficiency = lower demand" if doubling < 2.0 else "slower = higher demand" if doubling > 2.0 else "Base (owner 2.0)",
                           delta_color="off")
 
     st.caption(
         "**How the curves combine:** Enterprise tokens × Agent slider × Enterprise+Retail slider. "
         "Retail tokens × AI Users slider × Enterprise+Retail slider. "
         "Robotics tokens × Humanoid slider (dampened: 2.0× → +40%, not +100%). "
-        "Then total cloud tokens get divided by fleet-weighted GPU efficiency to derive GW demand."
+        "Then total cloud tokens get divided by fleet-weighted GPU efficiency to derive GW demand. "
+        "**Efficiency = hardware (the doubling above) × algorithmic 10%/yr** (owner 2026-07-03): "
+        "software/model gains — distillation, MoE, quantization — that deploy fleet-wide immediately, "
+        "layered on top of the hardware doubling. Set to 0 in `model.py` to recover the hardware-only curve."
     )
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -836,19 +880,53 @@ gap_fig.update_layout(
 )
 st.plotly_chart(gap_fig, width='stretch')
 
+# ── The efficiency wedge: raw token demand explodes while power demand flattens ──────
+# The note chart. Tokens/day (log, right axis) grow ~176x 2025->2042; power demand (GW,
+# left axis) flattens at the plateau. The widening gap between the two lines IS the
+# efficiency dividend (hardware doubling + algorithmic + fleet vintaging). Click a legend
+# entry to hide a line (single-click hide, double-click isolate) for a clean note export.
+st.markdown("**The efficiency wedge — tokens explode, power flattens**")
+st.caption(
+    "Raw token demand (orange, right log axis) grows ~176× to 2042; efficiency-adjusted "
+    "power demand (blue, left axis) plateaus. The gap between them is the efficiency "
+    "dividend. Click a legend entry to hide it — isolate the power curve for the note."
+)
+wedge_fig = go.Figure()
+wedge_fig.add_trace(go.Scatter(
+    x=YEARS, y=macro_df["demand_gw"], name="Power demand (GW)",
+    line=dict(color="#3498db", width=3),
+    hovertemplate="<b>%{x}</b><br>Power: %{y:.0f} GW<extra></extra>",
+))
+wedge_fig.add_trace(go.Scatter(
+    x=YEARS, y=macro_df["gross_tokens_T"], name="Token demand (T/day)", yaxis="y2",
+    line=dict(color="#e67e22", width=3, dash="dot"),
+    hovertemplate="<b>%{x}</b><br>Tokens: %{y:,.0f} T/day<extra></extra>",
+))
+wedge_fig.update_layout(
+    height=340,
+    yaxis=dict(title="Power demand (GW)"),
+    yaxis2=dict(title="Token demand (T/day, log)", overlaying="y", side="right", type="log"),
+    paper_bgcolor="#0e1117", plot_bgcolor="#0e1117", font_color="white",
+    legend=dict(orientation="h", y=-0.2, x=0),
+    margin=dict(t=10, b=60, l=60, r=70),
+    hovermode="x unified",
+)
+st.plotly_chart(wedge_fig, width='stretch')
+
 # ── Demand in FLOPs: tokens -> FLOPs -> power (ITEM 8 lens on the Efficiency Overlay)
 # Always computed in FLOPs terms from the current sidebar params, so you can read the
 # pure compute pull on power regardless of which basis drives the chart above.
-with st.expander("Duration Lens · tokens → FLOPs → power (higher floor, longer tightness)",
+with st.expander("FLOPs cross-check · tokens → FLOPs → power (ties out to the token base)",
                  expanded=bool(use_flops_demand)):
     st.caption(
-        "The FLOPs lens is the **duration** view, not a higher peak. Power tracks compute, "
-        "not token count: a token is **2·N FLOPs** and N varies ~50x by model, so FLOPs/day "
-        "is the purer pull on power. **FLOPs/day = tokens/day × 2·N(mix)**, then "
-        "**power = FLOPs/day ÷ 86,400 ÷ (fleet TFLOP/W × MFU)**, re-anchored so 2025 = "
-        f"{anchor_gw:.0f} GW. Because physical efficiency (~19x by 2040) is far below the "
-        "token model's implied ~122x, demand settles at a **higher floor** and the gap "
-        "**closes later** — the duration argument for the power/grid/cooling names. "
+        "First-principles consistency check. A token is **2·N FLOPs** and N varies ~50x by "
+        "model, so FLOPs/day is the physical pull on power: **FLOPs/day = tokens/day × "
+        "2·N(mix)**, then **power = FLOPs/day ÷ 86,400 ÷ (fleet TFLOP/W × MFU)**, re-anchored "
+        f"so 2025 = {anchor_gw:.0f} GW. **As of 2026-07-03 this lens is tied to the token "
+        "base**: the FLOPs hardware ramp (TFLOP/W) now tracks the same efficiency-doubling "
+        "lever, and algorithmic efficiency is expressed as routing to smaller models (avg N "
+        "falling), so the two bases are algebraically identical after the 2025 anchor. The "
+        "metrics below should read ~0 delta — that's the check passing, not a contradiction. "
         "Full Bull/Base/Bear engine: 'Operating Model' tab in the Token build-out Excel."
     )
     flops_macro = build_macro_gap(
@@ -857,11 +935,15 @@ with st.expander("Duration Lens · tokens → FLOPs → power (higher floor, lon
         use_flops_demand=True, flops_n_active_b=flops_n_active_b,
         flops_mix_2025=flops_mix_2025, flops_mix_2040=flops_mix_2040,
         flops_mfu=flops_mfu, capacity_retirement_rate=capacity_retirement_rate,
+        enable_util_split=enable_util_split, util_human=util_human, util_agent=util_agent,
+        util_start=util_start, util_maturity_year=int(util_maturity_year),
     )
     # Token base vs FLOPs lens — the duration comparison (the locked 2026-06-23 decision).
     _tok_macro = build_macro_gap(
         tok_df, anchor_gw_2025=anchor_gw, efficiency_doubling_years=doubling,
-        fleet_lag_years=fleet_life, supply_phase_rates=supply_rates)
+        fleet_lag_years=fleet_life, supply_phase_rates=supply_rates,
+        enable_util_split=enable_util_split, util_human=util_human, util_agent=util_agent,
+        util_start=util_start, util_maturity_year=int(util_maturity_year))
     _ts, _fs = gap_summary(_tok_macro), gap_summary(flops_macro)
     d1, d2, d3 = st.columns(3)
     d1.metric("Peak gap", f"{_fs['peak_gap_gw']:.0f} GW @ {_fs['peak_gap_year']}",
@@ -877,7 +959,7 @@ with st.expander("Duration Lens · tokens → FLOPs → power (higher floor, lon
         "Avg N (B)": [flops_macro.loc[y, "avg_n_active_b"] for y in YEARS],
         "FLOPs/token": [2 * flops_macro.loc[y, "avg_n_active_b"] * 1e9 for y in YEARS],
         "FLOPs/day": [flops_macro.loc[y, "flops_per_day"] for y in YEARS],
-        "Fleet TFLOP/W": [tflop_per_w_for_year(y) for y in YEARS],
+        "Fleet TFLOP/W": [tflop_per_w_for_year(2025) * flops_macro.loc[y, "fleet_eff_idx"] for y in YEARS],
         "Power (GW)": [flops_macro.loc[y, "demand_gw"] for y in YEARS],
     })
     st.dataframe(

@@ -388,26 +388,30 @@ def build():
               "the load-bearing ones.")
     table(doc, ["Parameter", "Value", "Anchored to", "Key point"], [
         ["Power anchor", "70 GW (2025)", "C&W / JLL / GS / McKinsey / DCD", "Mid of a tight 65–72 cluster"],
-        ["Efficiency doubling", "1.85 yr", "Epoch AI (Jun-2025)", "Aggressive vs Epoch's ~2.0; conservative-for-bull"],
+        ["Efficiency doubling (HW)", "2.0 yr", "Epoch AI (Jun-2025) ~2.0", "Owner 2026-06-25 (was 1.85)"],
+        ["Algorithmic efficiency", "10 %/yr", "Owner 2026-07-03; << Epoch ~3x/yr", "Compounding, un-lagged; on top of HW; ties token & FLOPs bases"],
         ["Fleet replacement lag", "5 yr", "HW refresh 3–4; enterprise 7–8", "Controls how fast efficiency propagates"],
         ["Supply phase rates", "22/30/25/15 %/yr", "Calibrated to JLL 200–225 GW by 2030", "Steps down as bottlenecks exhaust"],
         ["Utilization", "12% → 25%", "~9% measured 2026; cloud ~15–20%", "Rising = bearish for power-per-token"],
         ["PUE", "1.40 → 1.15", "Liquid-cooling penetration", "Only the trajectory bends the curve"],
         ["N_active tiers", "500 / 70 / 8 B", "GPT-4-class / DeepSeek-V3 / Llama-8B", "Illustrative, not calibrated"],
-        ["Routing mix", "0.55/0.30/0.15 → 0.15/0.35/0.50", "Cascade economics", "Yields ~2.9x model-size shrink"],
-        ["TFLOP/W ramp", "9 → 60", "H100→B200→GB200→Rubin perf/W", "~6x hardware gain to 2040"],
+        ["Routing / avg N_active", "297B → ~59B (2042)", "Algorithmic 10%/yr (tie-out)", "Now driven by the algo rate, not a fixed mix; ties to token base"],
+        ["TFLOP/W (FLOPs basis)", "9 × fleet HW index", "Tied to the 2.0-yr doubling", "No longer a decoupled 9→60 ramp; tracks the lever"],
         ["MFU", "0.35", "Frontier training 0.35–0.50", "Cancels in re-anchor"],
         ["Capex basis", "$11.3 + $15 × 50% /MW; 25% power-grid", "JLL 2026", "Supply-driven → $8.4T cumulative"],
     ])
     h2(doc, "The parameters that carry the most weight")
     lead(doc, "70 GW anchor.", "Center of the C&W (63→70–72), JLL (72), GS (65), McKinsey (70), "
               "DCD (68) cluster. ±5 GW, and low-stakes because everything re-anchors to it.")
-    lead(doc, "1.85-year efficiency doubling.", "Epoch AI's Jun-2025 update puts ML hardware "
-              "energy efficiency at ~40%/yr (~2.0-yr doubling); the longer GPU series is 2.4–3.0 yr. "
-              "The model takes 1.85 — slightly faster than Epoch — leaning on the post-Blackwell "
-              "annual-cadence collapse. This is the model's most aggressive externally-checkable "
-              "assumption, and it cuts against the power thesis (faster efficiency shrinks the gap), "
-              "so erring this way understates the power case. It is a defense, not a vulnerability.")
+    lead(doc, "2.0-year hardware doubling + 10%/yr algorithmic.", "Epoch AI's Jun-2025 update puts ML "
+              "hardware energy efficiency at ~40%/yr (~2.0-yr doubling); the model takes 2.0 (owner "
+              "2026-06-25, reverting an earlier 1.85). On TOP of hardware, algorithmic efficiency "
+              "compounds at 10%/yr (owner 2026-07-03) — software/model gains (distillation, MoE, "
+              "quantization) that deploy fleet-wide immediately. 10%/yr is deliberately far below "
+              "Epoch's ~3x/yr fixed-capability headline (the capability treadmill spends most of that "
+              "on better models, not cheaper ones). Both cut against the power thesis (faster efficiency "
+              "shrinks the gap), so erring this way understates the power case — a defense, not a "
+              "vulnerability. The same 10%/yr reconciles the token and FLOPs bases exactly.")
     lead(doc, "Supply phase rates (22/30/25/15).", "Calibrated so 2030 supply (~229 GW) sits just "
               "above the JLL/McKinsey/Bain 200–225 GW consensus. The step-up-then-down shape is the "
               "physical story: 22% early (permitted pipeline), 30% as the 2026-27 turbine/transformer "
@@ -511,14 +515,15 @@ def build():
               "so accidental drift is caught. Three things to keep in mind when defending the work:")
     lead(doc, "Absolute GW is anchored, not derived.", "Trust the shape and timing (when the gap "
               "peaks, when it closes) more than any single year's exact GW.")
-    lead(doc, "The 1.85-yr doubling is the most aggressive externally-checkable input.", "It is "
-              "faster than Epoch's current ~2.0-yr headline, and it cuts against the power thesis — "
-              "so if anyone calls the model too power-bullish, this parameter is the defense.")
-    lead(doc, "The FLOPs peak is a lens, not a hard forecast.", "The N_active tiers are illustrative "
-              "by the model's own admission; the committed headline stays the 332 GW token base, "
-              "with FLOPs as the duration view. And the ~750–850 GW “agentic” case some may have "
-              "seen was deliberately rejected — it required a structurally impossible >100% agentic "
-              "task penetration.")
+    lead(doc, "Efficiency (2.0-yr HW + 10%/yr algorithmic) is the most aggressive externally-checkable input.", "Both "
+              "are at/above Epoch's ~2.0-yr hardware headline, and both cut against the power thesis — "
+              "so if anyone calls the model too power-bullish, efficiency is the defense.")
+    lead(doc, "The FLOPs basis now ties out to the token base.", "As of 2026-07-03 the FLOPs lens "
+              "shares the same hardware doubling and the same 10%/yr algorithmic (expressed as routing "
+              "to smaller models), so it reproduces the token base exactly — a consistency check, not a "
+              "higher/longer forecast. The committed headline is the ~377 GW token base (peak gap ~200 "
+              "@ 2028). The ~750–850 GW “agentic” case some may have seen was deliberately rejected — it "
+              "required a structurally impossible >100% agentic task penetration.")
     para(doc, "The point of the model is not a precise number; it is a defensible framework for "
               "diving into the assumptions and dimensioning the most likely outcomes.", italic=True)
 
